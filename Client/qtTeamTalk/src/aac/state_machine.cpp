@@ -5,28 +5,34 @@ namespace AAC {
 
 void StateMachine::handleEvent(const Event& event)
 {
-    // TODO: Implement real state transitions in a future PR.
-
     switch (event.type) {
+
     case EventType::ConnectRequested:
-        // Placeholder: future logic will move from Idle -> Connecting.
+        if (m_state == State::Idle) {
+            m_state = State::Connecting;
+        }
         break;
 
     case EventType::Connected:
-        // Placeholder: future logic will move to Connected.
+        if (m_state == State::Connecting) {
+            m_state = State::Connected;
+        }
         break;
 
     case EventType::ConnectionFailed:
-        // Placeholder: future logic will move to Error.
+        if (m_state == State::Connecting) {
+            m_state = State::Error;
+        }
         break;
 
     case EventType::Disconnected:
-        // Placeholder: future logic will move back to Idle.
+        if (m_state == State::Connected || m_state == State::Error) {
+            m_state = State::Idle;
+        }
         break;
 
     case EventType::None:
     default:
-        // No action.
         break;
     }
 }
