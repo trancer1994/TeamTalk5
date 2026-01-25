@@ -92,6 +92,9 @@ class AACAccessibilityManager : public QObject {
 public:
     explicit AACAccessibilityManager(QObject* parent = nullptr);
 
+    void setProfile(AACProfile profile);
+    AACProfile profile() const { return m_profile; }
+
     const AACModeFlags& modes() const { return m_modes; }
     void setModes(const AACModeFlags& modes);
 
@@ -116,7 +119,7 @@ public:
 
     AACVocabularyManager* vocabularyManager() const { return m_vocabularyManager; }
 
-AACPredictionEngine* predictionEngine() const { return m_predictionEngine; }
+    AACPredictionEngine* predictionEngine() const { return m_predictionEngine; }
 
     bool predictionEnabled() const { return m_predictionEnabled; }
     void setPredictionEnabled(bool enabled);
@@ -132,9 +135,7 @@ signals:
     void scanningConfigChanged(const AACScanningConfig& cfg);
     void layoutConfigChanged(const AACLayoutConfig& cfg);
     void activeCategoryChanged(const QString& category);
-
-void setProfile(AACProfile profile);
-AACProfile profile() const { return m_profile; }
+void profileChanged(AACProfile profile);
 
     void speechStarted(const QString& text);
     void speechFinished(const QString& text);
