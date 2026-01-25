@@ -1,6 +1,8 @@
 #pragma once
 
 #include "AACPredictionEngine.h"
+#include "core/AACProfile.h"
+#include "core/AACProfileConfigTable.h"
 #include <QPushButton>
 #include <QtGlobal>
 #include <QObject>
@@ -131,6 +133,9 @@ signals:
     void layoutConfigChanged(const AACLayoutConfig& cfg);
     void activeCategoryChanged(const QString& category);
 
+void setProfile(AACProfile profile);
+AACProfile profile() const { return m_profile; }
+
     void speechStarted(const QString& text);
     void speechFinished(const QString& text);
     void historyChanged(const QStringList& history);
@@ -138,6 +143,7 @@ signals:
 
 private:
     QString m_activeCategory;
+    AACProfile m_profile = AACProfile::CoreVocabulary;
 
    AACModeFlags m_modes;
     AACDwellConfig m_dwellConfig;
