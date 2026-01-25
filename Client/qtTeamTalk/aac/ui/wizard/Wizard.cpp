@@ -7,20 +7,32 @@ Wizard::Wizard(QWidget *parent)
 {
     setWindowTitle("Setup Wizard");
 
-    // Page 1: Communication method
-    setPage(0, createCommunicationPage());
-
-    // Page 2: Layout
-    setPage(1, createLayoutPage());
-
-    // Page 3: Vocabulary
-    setPage(2, createVocabularyPage());
-
-    // Page 4: Summary
-    setPage(3, createSummaryPage());
+    // Register pages with explicit IDs
+    setPage(Page_Communication, createCommunicationPage());
+    setPage(Page_Layout, createLayoutPage());
+    setPage(Page_Vocabulary, createVocabularyPage());
+    setPage(Page_Summary, createSummaryPage());
 
     connect(this, &QWizard::finished,
             this, &Wizard::onFinished);
+}
+
+//
+// Dynamic page flow
+//
+int Wizard::nextId() const
+{
+    int id = currentId();
+
+    // Skip vocabulary screen for keyboard-only users
+    if (id == Page_Layout) {
+        if (selectedLayout == LayoutType::Keyboard)
+            return Page_Summary;
+        else
+            return Page_Vocabulary;
+    }
+
+    return QWizard::nextId();
 }
 
 //
@@ -37,14 +49,25 @@ QWidget* Wizard::createCommunicationPage()
 
     QButtonGroup *group = new QButtonGroup(page);
 
-    QRadioButton *touch = new QRadioButton("I touch the screen\n"
-                                           "I tap things directly with my finger or a stylus.");
-    QRadioButton *gaze = new QRadioButton("I look at things\n"
-                                          "I use my eyes to choose things on the screen.");
-    QRadioButton *scan = new QRadioButton("I wait for things to be highlighted\n"
-                                          "The app moves through options and I press a switch.");
-    QRadioButton *dwell = new QRadioButton("I hover over things\n"
-                                           "I hold my finger, pointer, or gaze until it selects.");
+    QRadioButton *touch = new QRadioButton(
+        "I touch the screen\n"
+        "I tap things directly with my finger or a stylus."
+    );
+
+    QRadioButton *gaze = new QRadioButton(
+        "I look at things\n"
+        "I use my eyes to choose things on the screen."
+    );
+
+    QRadioButton *scan = new QRadioButton(
+        "I wait for things to be highlighted\n"
+        "The app moves through options and I press a switch."
+    );
+
+    QRadioButton *dwell = new QRadioButton(
+        "I hover over things\n"
+        "I hold my finger, pointer, or gaze until it selects."
+    );
 
     group->addButton(touch, 0);
     group->addButton(gaze, 1);
@@ -56,10 +79,9 @@ QWidget* Wizard::createCommunicationPage()
     layout->addWidget(scan);
     layout->addWidget(dwell);
 
-    // Default
     touch->setChecked(true);
+    selectedInputMethod = InputMethod::Touch;
 
-    // Store selection when leaving page
     connect(group, QOverload<int>::of(&QButtonGroup::idClicked),
             this, [this](int id){
         switch (id) {
@@ -74,7 +96,7 @@ QWidget* Wizard::createCommunicationPage()
 }
 
 //
-// PAGE 2 — Layout
+// PAGE 2 — "How do you build messages?"
 //
 QWidget* Wizard::createLayoutPage()
 {
@@ -100,6 +122,7 @@ QWidget* Wizard::createLayoutPage()
     layout->addWidget(both);
 
     grid->setChecked(true);
+    selectedLayout = LayoutType::Grid;
 
     connect(group, QOverload<int>::of(&QButtonGroup::idClicked),
             this, [this](int id){
@@ -114,7 +137,7 @@ QWidget* Wizard::createLayoutPage()
 }
 
 //
-// PAGE 3 — Vocabulary
+// PAGE 3 — "Choose your vocabulary"
 //
 QWidget* Wizard::createVocabularyPage()
 {
@@ -140,6 +163,7 @@ QWidget* Wizard::createVocabularyPage()
     layout->addWidget(custom);
 
     core->setChecked(true);
+    selectedVocabulary = VocabularyType::Core;
 
     connect(group, QOverload<int>::of(&QButtonGroup::idClicked),
             this, [this](int id){
@@ -168,10 +192,9 @@ QWidget* Wizard::createSummaryPage()
     summary->setWordWrap(true);
     layout->addWidget(summary);
 
-    // Update summary when page is shown
     connect(this, &QWizard::currentIdChanged,
             this, [this, summary](int id){
-        if (id == 3)
+        if (id == Page_Summary)
             buildSummaryText(summary);
     });
 
@@ -198,18 +221,20 @@ void Wizard::buildSummaryText(QLabel *label)
     case LayoutType::Hybrid: layoutStr = "Both"; break;
     }
 
-    QString vocabStr;
-    switch (selectedVocabulary) {
-    case VocabularyType::Core: vocabStr = "Core"; break;
-    case VocabularyType::Expanded: vocabStr = "Expanded"; break;
-    case VocabularyType::Custom: vocabStr = "Custom"; break;
+    QString summary = "Input Method: " + inputStr + "\n"
+                      "Layout: " + layoutStr;
+
+    if (selectedLayout != LayoutType::Keyboard) {
+        QString vocabStr;
+        switch (selectedVocabulary) {
+        case VocabularyType::Core: vocabStr = "Core"; break;
+        case VocabularyType::Expanded: vocabStr = "Expanded"; break;
+        case VocabularyType::Custom: vocabStr = "Custom"; break;
+        }
+        summary += "\nVocabulary: " + vocabStr;
     }
 
-    label->setText(
-        "Input Method: " + inputStr + "\n"
-        "Layout: " + layoutStr + "\n"
-        "Vocabulary: " + vocabStr
-    );
+    label->setText(summary);
 }
 
 //
@@ -225,7 +250,6 @@ void Wizard::onFinished(int result)
     p.layout = selectedLayout;
     p.vocabulary = selectedVocabulary;
 
-    // Mode flags derived from input method
     p.modeFlags.fromInputMethod(selectedInputMethod);
 
     emit profileReady(p);
