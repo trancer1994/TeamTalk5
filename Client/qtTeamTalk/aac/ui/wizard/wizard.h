@@ -16,6 +16,12 @@ class Wizard : public QWizard
     Q_OBJECT
 
 public:
+enum PageId {
+    Page_Communication = 0,
+    Page_Layout = 1,
+    Page_Vocabulary = 2,
+    Page_Summary = 3
+};
     explicit Wizard(QWidget *parent = nullptr);
 
 signals:
