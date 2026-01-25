@@ -41,6 +41,90 @@ AACAccessibilityManager::AACAccessibilityManager(QObject* parent)
             this, &AACAccessibilityManager::historyChanged);
 }
 
+void AACAccessibilityManager::setProfile(AACProfile profile)
+{
+    if (m_profile == profile)
+        return;
+
+    m_profile = profile;
+    const AACProfileConfig cfg = profileConfig(profile);
+
+    //
+    // 1. Apply symbol pack (vocabulary)
+    //
+    if (m_vocabularyManager) {
+        // Your VocabularyManager already exposes this
+        m_vocabularyManager->setSymbolPack(cfg.symbolPack);
+    }
+
+    //
+    // 2. Apply prediction mode
+    //
+    if (m_predictionEngine) {
+        m_predictionEngine->applyProfile(cfg);
+    }
+
+    //
+    // 3. Apply layout profile
+    //
+    if (m_layoutEngine) {
+        m_layoutEngine->applyProfile(cfg);
+    }
+
+    //
+    // 4. Apply scanning/dwell/one-hand/etc. if profile implies it
+    //
+    AACModeFlags newModes = m_modes;
+
+    if (cfg.gridId == "scanning_1xn") {
+        newModes.scanning = true;
+        newModes.dwell = false;
+        newModes.largeTargets = true;
+        newModes.oneHandLayout = false;
+        newModes.ultraMinimal = true;
+    }
+    else if (cfg.gridId == "keyboard") {
+        newModes.scanning = false;
+        newModes.dwell = false;
+        newModes.largeTargets = false;
+        newModes.oneHandLayout = false;
+        newModes.ultraMinimal = false;
+        newModes.predictiveStrip = true;
+    }
+    else if (cfg.gridId == "sensory_2x2") {
+        newModes.largeTargets = true;
+        newModes.ultraMinimal = true;
+        newModes.scanning = false;
+        newModes.dwell = false;
+    }
+    else {
+        // Default for typical symbol grids
+        newModes.largeTargets = true;
+        newModes.ultraMinimal = false;
+    }
+
+    setModes(newModes);
+
+    //
+    // 5. Apply dwell/scanning configs if needed
+    //
+    if (newModes.dwell) {
+        AACDwellConfig dwell;
+        dwell.dwellDurationMs = 900; // profile-specific tuning
+        setDwellConfig(dwell);
+    }
+
+    if (newModes.scanning) {
+        AACScanningConfig scan;
+        scan.stepIntervalMs = 1100; // profile-specific tuning
+        setScanningConfig(scan);
+    }
+
+    //
+    // 6. Notify UI and screens
+    //
+    emit profileChanged(profile);
+}
 void AACAccessibilityManager::setPredictionEnabled(bool enabled)
 {
     if (m_predictionEnabled == enabled)
