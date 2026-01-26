@@ -47,5 +47,6 @@ private:
     QPushButton* m_presetEyeGaze        = nullptr;
     QPushButton* m_presetSwitch         = nullptr;
     QPushButton* m_presetCognitiveLow   = nullptr;
+    QPushButton* m_speechSettingsButton = nullptr;
     QPushButton* m_backButton           = nullptr;
 };
