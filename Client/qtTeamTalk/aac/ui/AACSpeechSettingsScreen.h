@@ -25,14 +25,16 @@ private slots:
 private:
     // Basic
     QComboBox* m_voiceSelector = nullptr;
+    QComboBox* m_presetBox     = nullptr;
     QSlider*   m_rateSlider    = nullptr;
     QSlider*   m_pitchSlider   = nullptr;
     QSlider*   m_volumeSlider  = nullptr;
     QComboBox* m_sayAsType     = nullptr;
+    QComboBox* m_testSentenceBox = nullptr;
 
     // Advanced
-    QCheckBox* m_echoOnSend    = nullptr;
-    QCheckBox* m_preTone       = nullptr;
+    QCheckBox* m_echoOnSend       = nullptr;
+    QCheckBox* m_preTone          = nullptr;
     QCheckBox* m_highIntelligible = nullptr;
     QCheckBox* m_lowIntensity     = nullptr;
 
@@ -41,6 +43,7 @@ private:
     QGroupBox* m_expertGroup      = nullptr;
 
     // Common
-    QPushButton* m_previewButton = nullptr;
-    QPushButton* m_backButton    = nullptr;
+    QPushButton* m_previewButton        = nullptr;
+    QPushButton* m_restoreDefaultsButton = nullptr;
+    QPushButton* m_backButton           = nullptr;
 };
