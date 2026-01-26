@@ -39,6 +39,8 @@ AACAccessibilityManager::AACAccessibilityManager(QObject* parent)
 
     connect(m_history, &AACMessageHistory::historyChanged,
             this, &AACAccessibilityManager::historyChanged);
+connect(this, &AACAccessibilityManager::speechConfigChanged,
+        m_speechEngine, &AACSpeechEngine::applyConfig);
 }
 
 void AACAccessibilityManager::setProfile(AACProfile profile)
@@ -210,7 +212,11 @@ void AACAccessibilityManager::setLayoutConfig(const AACLayoutConfig& cfg)
     m_layoutConfig = cfg;
     emit layoutConfigChanged(m_layoutConfig);
 }
-
+void AACAccessibilityManager::setSpeechConfig(const AACSpeechConfig& cfg)
+{
+    m_speechConfig = cfg;
+    emit speechConfigChanged(m_speechConfig);
+}
 // -------------------------
 // AACLayoutEngine
 // -------------------------
@@ -728,6 +734,28 @@ void AACSpeechEngine::speakLetter(const QString& letter)
         return;
 
     m_tts->say(letter);
+}
+void AACSpeechEngine::applyConfig(const AACSpeechConfig& cfg)
+{
+    if (!m_tts)
+        return;
+
+    // Voice
+    if (!cfg.voiceName.isEmpty())
+        setVoice(cfg.voiceName);
+
+    // Core parameters
+    setRate(cfg.rate);
+    setPitch(cfg.pitch);
+    m_tts->setVolume(cfg.volume);
+
+    // Speak-as-you-type
+    setSpeakAsYouType(cfg.speakAsYouTypeMode != AACSpeechConfig::SpeakNone);
+
+    // Future expansion:
+    // - intelligibility mode
+    // - low-intensity mode
+    // - prosody adjustments
 }
 // -------------------------
 // AACMessageHistory
