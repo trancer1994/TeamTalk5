@@ -71,7 +71,29 @@ struct AACModeFlags {
     bool ultraMinimal = false;
     bool predictiveStrip = false;
 };
+struct AACSpeechConfig {
+    QString voiceId;          // engine-specific ID or name
+    QString voiceName;        // human-readable label
+    QString language;         // e.g. "en-GB"
+    QString accent;           // optional, e.g. "UK", "US", "Irish"
 
+    double rate  = 0.0;       // Qt: -1.0 .. +1.0
+    double pitch = 1.0;       // Qt: 0.0 .. 2.0
+    double volume = 1.0;      // 0.0 .. 1.0 (if you want to expose it)
+
+    enum SpeakAsYouTypeMode {
+        SpeakNone,
+        SpeakLetters,
+        SpeakWords,
+        SpeakPhrases
+    };
+    SpeakAsYouTypeMode speakAsYouTypeMode = SpeakNone;
+
+    bool echoOnSend       = true;   // speak full message when sending
+    bool playPreTone      = false;  // chime before speech
+    bool highIntelligible = false;  // future: tweak rate/pitch/prosody
+    bool lowIntensity     = false;  // future: softer, less sharp
+};
 struct AACDwellConfig {
     int dwellDurationMs = 800;
 };
