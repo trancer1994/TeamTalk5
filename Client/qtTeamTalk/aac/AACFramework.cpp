@@ -665,30 +665,34 @@ AACSpeechEngine::AACSpeechEngine(AACAccessibilityManager* mgr, QObject* parent)
     , m_mgr(mgr)
 {
     m_tts = new QTextToSpeech(this);
+connect(m_tts, &QTextToSpeech::stateChanged,
+        this, [this](QTextToSpeech::State st) {
+            if (st == QTextToSpeech::Speaking)
+                emit speechStarted(QString());
+            else if (st == QTextToSpeech::Ready)
+                emit speechFinished(QString());
+        });
 }
 
 void AACSpeechEngine::speak(const QString& text)
 {
-    if (!m_tts || text.isEmpty())
-        return;
+if (!m_tts)
+    return;
 
-    emit speechStarted(text);
-    m_tts->say(text);
+const QString trimmed = text.trimmed();
+if (trimmed.isEmpty())
+    return;
 
-    // We don't get a per-utterance finished signal easily here,
-    // so we emit finished immediately after scheduling.
-    emit speechFinished(text);
+m_tts->say(trimmed);
 
-    if (m_mgr && !text.trimmed().isEmpty()) {
-        m_mgr->history()->addMessage(text);
+if (m_mgr)
+{
+    m_mgr->history()->addMessage(trimmed);
 
-        // Prediction learning trigger #3 — learn full utterance
-        if (m_mgr && m_mgr->predictionEngine()) {
-            const QString trimmed = text.trimmed();
-            if (!trimmed.isEmpty())
-                m_mgr->predictionEngine()->learnUtterance(trimmed);
-        }
-    }
+    if (m_mgr->predictionEngine())
+        m_mgr->predictionEngine()->learnUtterance(trimmed);
+}
+
 }
 
 void AACSpeechEngine::stop()
@@ -726,45 +730,110 @@ void AACSpeechEngine::setPitch(double pitch)
     m_tts->setPitch(pitch);
 }
 
-void AACSpeechEngine::setSpeakAsYouType(bool enabled)
-{
-    m_speakAsYouType = enabled;
-}
-
 void AACSpeechEngine::speakLetter(const QString& letter)
 {
-    if (!m_tts || !m_speakAsYouType)
-        return;
+if (!m_tts)
+    return;
+if (m_sayMode != AACSpeechConfig::SpeakLetters)
+    return;
+if (letter.trimmed().isEmpty())
+    return;
+speak(letter);
+}
+void AACSpeechEngine::intelligibilityShaping(AACSpeechConfig& cfg)
+{
+if (!cfg.highIntelligible)
+    return;
 
-    if (letter.isEmpty())
-        return;
+if (cfg.rate > 1.0)
+    cfg.rate = 1.0 + (cfg.rate - 1.0) * 0.5;
+if (cfg.pitch < 1.0)
+    cfg.pitch = cfg.pitch + (1.0 - cfg.pitch) * 0.3;
+if (cfg.volume < 0.7)
+    cfg.volume = 0.7;
+}
 
-    m_tts->say(letter);
+void AACSpeechEngine::lowIntensityShaping(AACSpeechConfig& cfg)
+{
+if (!cfg.lowIntensity)
+    return;
+if (cfg.volume > 0.6)
+    cfg.volume = 0.6;
+if (cfg.volume < 0.3)
+    cfg.volume = 0.3;
+cfg.pitch = cfg.pitch * 0.9;
+cfg.rate = cfg.rate * 0.9;
 }
 
 void AACSpeechEngine::applyConfig(const AACSpeechConfig& cfg)
 {
-    if (!m_tts)
-        return;
+if (!m_tts)
+    return;
 
-    // Voice
-    if (!cfg.voiceName.isEmpty())
-        setVoice(cfg.voiceName);
+AACSpeechConfig effective = cfg;
+applyPresetShaping(effective);
+intelligibilityShaping(effective);
+lowIntensityShaping(effective);
+if (effective.rate < 0.1)
+    effective.rate = 0.1;
+if (effective.rate > 2.0)
+    effective.rate = 2.0;
 
-    // Core parameters
-    setRate(cfg.rate);
-    setPitch(cfg.pitch);
-    m_tts->setVolume(cfg.volume);
+if (effective.pitch < 0.1)
+    effective.pitch = 0.1;
+if (effective.pitch > 2.0)
+    effective.pitch = 2.0;
 
-    // Speak-as-you-type
-    setSpeakAsYouType(cfg.speakAsYouTypeMode != AACSpeechConfig::SpeakNone);
+if (effective.volume < 0.0)
+    effective.volume = 0.0;
+if (effective.volume > 1.0)
+    effective.volume = 1.0;
+m_cfg = effective;
+if (!m_cfg.voiceName.isEmpty()) {
+    const auto voices = m_tts->availableVoices();
+    for (const QVoice& v : voices) {
+        if (v.name() == m_cfg.voiceName) {
+            m_tts->setVoice(v);
+            break;
+        }
+    }
+}
+m_tts->setRate(m_cfg.rate);
+m_tts->setPitch(m_cfg.pitch);
+m_tts->setVolume(m_cfg.volume);
+m_sayMode = m_cfg.speakAsYouTypeMode;
+}
+void AACSpeechEngine::speakWord(const QString& word)
+{
+if (!m_tts)
+    return;
+if (m_sayMode != AACSpeechConfig::SpeakWords)
+    return;
+if (word.trimmed().isEmpty())
+    return;
+speak(word);
 
-    // Future expansion:
-    // - intelligibility mode
-    // - low-intensity mode
-    // - prosody adjustments
 }
 
+void AACSpeechEngine::speakPhrase(const QString& phrase)
+{
+if (!m_tts)
+    return;
+if (m_sayMode != AACSpeechConfig::SpeakPhrases)
+    return;
+if (phrase.trimmed().isEmpty())
+    return;
+speak(phrase);
+}
+
+void AACSpeechEngine::echoOnSend(const QString& text)
+{
+if (!m_cfg.echoOnSend)
+    return;
+if (text.trimmed().isEmpty())
+    return;
+speak(text);
+}
 // -------------------------
 // AACMessageHistory
 // -------------------------
