@@ -3,6 +3,7 @@
 #include "AACPredictionEngine.h"
 #include "core/AACProfile.h"
 #include "core/AACProfileConfigTable.h"
+
 #include <QPushButton>
 #include <QtGlobal>
 #include <QObject>
@@ -71,6 +72,7 @@ struct AACModeFlags {
     bool ultraMinimal = false;
     bool predictiveStrip = false;
 };
+
 struct AACSpeechConfig {
     QString voiceId;          // engine-specific ID or name
     QString voiceName;        // human-readable label
@@ -79,7 +81,7 @@ struct AACSpeechConfig {
 
     double rate  = 0.0;       // Qt: -1.0 .. +1.0
     double pitch = 1.0;       // Qt: 0.0 .. 2.0
-    double volume = 1.0;      // 0.0 .. 1.0 (if you want to expose it)
+    double volume = 1.0;      // 0.0 .. 1.0
 
     enum SpeakAsYouTypeMode {
         SpeakNone,
@@ -94,6 +96,7 @@ struct AACSpeechConfig {
     bool highIntelligible = false;  // future: tweak rate/pitch/prosody
     bool lowIntensity     = false;  // future: softer, less sharp
 };
+
 struct AACDwellConfig {
     int dwellDurationMs = 800;
 };
@@ -150,6 +153,10 @@ public:
     void loadPredictionForUser(const QString& userId);
     void savePredictionForUser(const QString& userId);
 
+    // ⭐ Speech config accessors (matches setSpeechConfig in .cpp)
+    AACSpeechConfig speechConfig() const { return m_speechConfig; }
+    void setSpeechConfig(const AACSpeechConfig& cfg);
+
 signals:
     void modesChanged(const AACModeFlags& modes);
     void dwellConfigChanged(const AACDwellConfig& cfg);
@@ -157,18 +164,21 @@ signals:
     void scanningConfigChanged(const AACScanningConfig& cfg);
     void layoutConfigChanged(const AACLayoutConfig& cfg);
     void activeCategoryChanged(const QString& category);
-void profileChanged(AACProfile profile);
+    void profileChanged(AACProfile profile);
 
     void speechStarted(const QString& text);
     void speechFinished(const QString& text);
     void historyChanged(const QStringList& history);
     void predictionEnabledChanged(bool enabled);
 
+    // ⭐ Notify when speech config changes
+    void speechConfigChanged(const AACSpeechConfig& cfg);
+
 private:
     QString m_activeCategory;
     AACProfile m_profile = AACProfile::CoreVocabulary;
 
-   AACModeFlags m_modes;
+    AACModeFlags m_modes;
     AACDwellConfig m_dwellConfig;
     AACScanningConfig m_scanningConfig;
     AACLayoutConfig m_layoutConfig;
@@ -183,6 +193,9 @@ private:
 
     AACPredictionEngine* m_predictionEngine = nullptr;
     bool m_predictionEnabled = true;
+
+    // ⭐ Stored speech configuration
+    AACSpeechConfig m_speechConfig;
 };
 
 // -------------------------
@@ -319,6 +332,9 @@ public:
     bool speakAsYouType() const { return m_speakAsYouType; }
 
     void speakLetter(const QString& letter);
+
+    // ⭐ Apply full speech configuration
+    void applyConfig(const AACSpeechConfig& cfg);
 
 signals:
     void speechStarted(const QString& text);
