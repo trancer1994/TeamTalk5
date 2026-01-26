@@ -340,10 +340,10 @@ public:
     void setRate(double rate);
     void setPitch(double pitch);
 
-    void setSpeakAsYouType(bool enabled);
-    bool speakAsYouType() const { return m_speakAsYouType; }
-
     void speakLetter(const QString& letter);
+    void speakWord(const QString& word);
+    void speakPhrase(const QString& phrase);
+    void echoOnSend(const QString& text);
 
     void applyConfig(const AACSpeechConfig& cfg);
 
@@ -354,7 +354,13 @@ signals:
 private:
     AACAccessibilityManager* m_mgr = nullptr;
     QTextToSpeech* m_tts = nullptr;
-    bool m_speakAsYouType = false;
+
+    AACSpeechConfig m_cfg;
+    AACSpeechConfig::SpeakAsYouTypeMode m_sayMode = AACSpeechConfig::SpeakNone;
+
+    void applyPresetShaping(AACSpeechConfig& cfg);
+    void intelligibilityShaping(AACSpeechConfig& cfg);
+    void lowIntensityShaping(AACSpeechConfig& cfg);
 };
 
 // -------------------------
