@@ -43,7 +43,7 @@ public:
     bool isDeepWell() const;
 
 public slots:
-    void setDwellProgress(float p); // 0.0–1.0
+    void setDwellProgress(float p);
 
 protected:
     void enterEvent(QEnterEvent* e) override;
@@ -59,7 +59,7 @@ private:
 };
 
 // -------------------------
-// High-level AAC mode flags
+// AACModeFlags
 // -------------------------
 struct AACModeFlags {
     bool largeTargets = false;
@@ -73,15 +73,18 @@ struct AACModeFlags {
     bool predictiveStrip = false;
 };
 
+// -------------------------
+// AACSpeechConfig
+// -------------------------
 struct AACSpeechConfig {
-    QString voiceId;          // engine-specific ID or name
-    QString voiceName;        // human-readable label
-    QString language;         // e.g. "en-GB"
-    QString accent;           // optional, e.g. "UK", "US", "Irish"
+    QString voiceId;
+    QString voiceName;
+    QString language;
+    QString accent;
 
-    double rate  = 0.0;       // Qt: -1.0 .. +1.0
-    double pitch = 1.0;       // Qt: 0.0 .. 2.0
-    double volume = 1.0;      // 0.0 .. 1.0
+    double rate  = 0.0;
+    double pitch = 1.0;
+    double volume = 1.0;
 
     enum SpeakAsYouTypeMode {
         SpeakNone,
@@ -91,10 +94,10 @@ struct AACSpeechConfig {
     };
     SpeakAsYouTypeMode speakAsYouTypeMode = SpeakNone;
 
-    bool echoOnSend       = true;   // speak full message when sending
-    bool playPreTone      = false;  // chime before speech
-    bool highIntelligible = false;  // future: tweak rate/pitch/prosody
-    bool lowIntensity     = false;  // future: softer, less sharp
+    bool echoOnSend       = true;
+    bool playPreTone      = false;
+    bool highIntelligible = false;
+    bool lowIntensity     = false;
 };
 
 struct AACDwellConfig {
@@ -116,6 +119,16 @@ class AACAccessibilityManager : public QObject {
     Q_OBJECT
 public:
     explicit AACAccessibilityManager(QObject* parent = nullptr);
+
+    // ⭐ Persistence
+    void loadSpeechConfigForUser(const QString& userId);
+    void saveSpeechConfigForUser(const QString& userId) const;
+
+    // ⭐ Unified profile loader
+    void loadUserProfile(const QString& userId);
+
+    // ⭐ Migration helper
+    void migrateSpeechConfigIfNeeded(AACSpeechConfig& cfg);
 
     void setProfile(AACProfile profile);
     AACProfile profile() const { return m_profile; }
@@ -143,7 +156,6 @@ public:
     AACMessageHistory* history() const { return m_history; }
 
     AACVocabularyManager* vocabularyManager() const { return m_vocabularyManager; }
-
     AACPredictionEngine* predictionEngine() const { return m_predictionEngine; }
 
     bool predictionEnabled() const { return m_predictionEnabled; }
@@ -153,7 +165,7 @@ public:
     void loadPredictionForUser(const QString& userId);
     void savePredictionForUser(const QString& userId);
 
-    // ⭐ Speech config accessors (matches setSpeechConfig in .cpp)
+    // ⭐ Speech config accessors
     AACSpeechConfig speechConfig() const { return m_speechConfig; }
     void setSpeechConfig(const AACSpeechConfig& cfg);
 
@@ -171,7 +183,7 @@ signals:
     void historyChanged(const QStringList& history);
     void predictionEnabledChanged(bool enabled);
 
-    // ⭐ Notify when speech config changes
+    // ⭐ Speech config changed
     void speechConfigChanged(const AACSpeechConfig& cfg);
 
 private:
@@ -333,7 +345,6 @@ public:
 
     void speakLetter(const QString& letter);
 
-    // ⭐ Apply full speech configuration
     void applyConfig(const AACSpeechConfig& cfg);
 
 signals:
