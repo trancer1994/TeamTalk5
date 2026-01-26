@@ -39,8 +39,10 @@ AACAccessibilityManager::AACAccessibilityManager(QObject* parent)
 
     connect(m_history, &AACMessageHistory::historyChanged,
             this, &AACAccessibilityManager::historyChanged);
-connect(this, &AACAccessibilityManager::speechConfigChanged,
-        m_speechEngine, &AACSpeechEngine::applyConfig);
+
+    // ⭐ Keep speech engine in sync with config
+    connect(this, &AACAccessibilityManager::speechConfigChanged,
+            m_speechEngine, &AACSpeechEngine::applyConfig);
 }
 
 void AACAccessibilityManager::setProfile(AACProfile profile)
@@ -55,7 +57,6 @@ void AACAccessibilityManager::setProfile(AACProfile profile)
     // 1. Apply symbol pack (vocabulary)
     //
     if (m_vocabularyManager) {
-        // Your VocabularyManager already exposes this
         m_vocabularyManager->setSymbolPack(cfg.symbolPack);
     }
 
@@ -127,6 +128,7 @@ void AACAccessibilityManager::setProfile(AACProfile profile)
     //
     emit profileChanged(profile);
 }
+
 void AACAccessibilityManager::setPredictionEnabled(bool enabled)
 {
     if (m_predictionEnabled == enabled)
@@ -154,7 +156,6 @@ void AACAccessibilityManager::boostPredictionVocabulary()
     if (!m_vocabularyManager || !m_predictionEngine)
         return;
 
-    // If you have a better API, adapt this:
     const QStringList words = m_vocabularyManager->allWords(); // hypothetical
     for (const QString& w : words)
         m_predictionEngine->boostToken(w);
@@ -178,6 +179,7 @@ void AACAccessibilityManager::savePredictionForUser(const QString& userId)
     const QString path = QStringLiteral("pred_%1.dat").arg(userId);
     m_predictionEngine->saveToFile(path);
 }
+
 void AACAccessibilityManager::setModes(const AACModeFlags& modes)
 {
     if (m_modes.largeTargets == modes.largeTargets &&
@@ -212,11 +214,13 @@ void AACAccessibilityManager::setLayoutConfig(const AACLayoutConfig& cfg)
     m_layoutConfig = cfg;
     emit layoutConfigChanged(m_layoutConfig);
 }
+
 void AACAccessibilityManager::setSpeechConfig(const AACSpeechConfig& cfg)
 {
     m_speechConfig = cfg;
     emit speechConfigChanged(m_speechConfig);
 }
+
 // -------------------------
 // AACLayoutEngine
 // -------------------------
@@ -263,7 +267,6 @@ void AACLayoutEngine::applyOneHandLayout(AACScreenAdapter* screen)
     if (!lay)
         return;
 
-    // Minimal implementation: add extra bottom margin to bias controls downward.
     QMargins m = lay->contentsMargins();
     if (m_mgr->layoutConfig().oneHandRightSide) {
         m.setBottom(m.bottom() + 40);
@@ -403,7 +406,6 @@ void AACInputController::onDwellTick()
     const int elapsed = static_cast<int>(m_dwellElapsed.elapsed());
     const int target = m_mgr->dwellConfig().dwellDurationMs;
 
-    // Dwell progress: 0.0–1.0
     float progress = 0.0f;
     if (target > 0)
         progress = qBound(0.0f, float(elapsed) / float(target), 1.0f);
@@ -470,7 +472,6 @@ bool AACInputController::isDeepWell(QWidget* w) const
 {
     if (!w)
         return false;
-    // Convention: widgets with property "aacDeepWell" = true require dwell/hold semantics.
     return w->property("aacDeepWell").toBool();
 }
 
@@ -481,7 +482,6 @@ void AACInputController::activateWidget(QWidget* w)
 
     if (auto* btn = qobject_cast<QAbstractButton*>(w)) {
         if (isDeepWell(w)) {
-            // For deep wells, we already required dwell or scanning focus before activation.
             btn->click();
             emit deepWellActivated(w);
         } else {
@@ -553,7 +553,7 @@ void AACFeedbackEngine::doHaptic(int strength)
     Q_UNUSED(strength);
     if (!m_mgr->modes().hapticFeedback)
         return;
-    // Hook up platform-specific haptics here (QFeedbackHapticsEffect, etc.)
+    // Hook up platform-specific haptics here.
 }
 
 void AACFeedbackEngine::hapticSoft()
@@ -570,6 +570,7 @@ void AACFeedbackEngine::hapticError()
 {
     doHaptic(3);
 }
+
 // -------------------------
 // AACButton
 // -------------------------
@@ -595,7 +596,10 @@ void AACButton::setDeepWell(bool enabled)
     setProperty("aacDeepWell", enabled);
 }
 
-bool AACButton::isDeepWell() const { return m_deepWell; }
+bool AACButton::isDeepWell() const
+{
+    return m_deepWell;
+}
 
 void AACButton::setDwellProgress(float p)
 {
@@ -651,6 +655,7 @@ void AACButton::paintEvent(QPaintEvent* e)
     int spanAngle = -int(360 * 16 * m_dwellProgress);
     p.drawArc(r, startAngle, spanAngle);
 }
+
 // -------------------------
 // AACSpeechEngine
 // -------------------------
@@ -676,12 +681,13 @@ void AACSpeechEngine::speak(const QString& text)
 
     if (m_mgr && !text.trimmed().isEmpty()) {
         m_mgr->history()->addMessage(text);
-// Prediction learning trigger #3 — learn full utterance
-if (m_mgr && m_mgr->predictionEngine()) {
-    const QString trimmed = text.trimmed();
-    if (!trimmed.isEmpty())
-        m_mgr->predictionEngine()->learnUtterance(trimmed);
-}
+
+        // Prediction learning trigger #3 — learn full utterance
+        if (m_mgr && m_mgr->predictionEngine()) {
+            const QString trimmed = text.trimmed();
+            if (!trimmed.isEmpty())
+                m_mgr->predictionEngine()->learnUtterance(trimmed);
+        }
     }
 }
 
@@ -735,6 +741,7 @@ void AACSpeechEngine::speakLetter(const QString& letter)
 
     m_tts->say(letter);
 }
+
 void AACSpeechEngine::applyConfig(const AACSpeechConfig& cfg)
 {
     if (!m_tts)
@@ -757,6 +764,7 @@ void AACSpeechEngine::applyConfig(const AACSpeechConfig& cfg)
     // - low-intensity mode
     // - prosody adjustments
 }
+
 // -------------------------
 // AACMessageHistory
 // -------------------------
