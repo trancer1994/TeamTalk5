@@ -16,6 +16,7 @@ class AppSettingsScreen;
 class AACSettingsScreen;
 class AACCategoryScreen;
 class AACSymbolGridScreen;
+class Profile;
 
 class MainWindow : public QMainWindow
 {
@@ -68,5 +69,5 @@ private:
 
     void wireScreens();
     void applyAACDefaults();
-    void switchToScreen(QWidget* w);
+    void applyProfileToAAC(const Profile& p);
 };
