@@ -22,6 +22,7 @@ enum PageId {
     Page_Vocabulary = 2,
     Page_Summary = 3
 };
+    int nextId() const override;
     explicit Wizard(QWidget *parent = nullptr);
 
 signals:
