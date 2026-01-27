@@ -309,10 +309,49 @@ int main(int argc, char* argv[])
     if(idx >= 0 && ++idx < QApplication::arguments().size())
         cfgfile = QApplication::arguments()[idx];
 
-    MainWindow window(cfgfile);
+// FIRST-LAUNCH DETECTION
+QSettings settings("BearWare.dk", "TeamTalk5");
+bool firstLaunch = settings.value("aac/firstLaunch", true).toBool();
 
-    /* Set license information before creating the first client instance */
-    TT_SetLicenseInformation(_W(QString(REGISTRATION_NAME)), _W(QString(REGISTRATION_KEY)));
+if (firstLaunch) {
+    Wizard* w = new Wizard;
+
+    QObject::connect(w, &Wizard::profileReady, [&](const Profile& p){
+        settings.setValue("aac/inputMethod", (int)p.inputMethod);
+        settings.setValue("aac/layout", (int)p.layout);
+        settings.setValue("aac/vocabulary", (int)p.vocabulary);
+        settings.setValue("aac/firstLaunch", false);
+
+        // Create main window AFTER wizard
+        MainWindow* mw = new MainWindow(cfgfile);
+
+        /* Set license information before creating the first client instance */
+        TT_SetLicenseInformation(_W(QString(REGISTRATION_NAME)), _W(QString(REGISTRATION_KEY)));
+
+#if defined(Q_OS_WIN32)
+        HWND hWnd = reinterpret_cast<HWND>(mw->winId());
+        app.m_mainwindow = mw;
+        ttInst = TT_InitTeamTalk(hWnd, WM_TEAMALK_CLIENTEVENT);
+#elif defined(Q_OS_LINUX) || defined(Q_OS_DARWIN)
+        app.m_mainwindow = mw;
+        ttInst = TT_InitTeamTalkPoll();
+#else
+        ttInst = TT_InitTeamTalkPoll();
+#endif
+
+        mw->loadSettings();
+        mw->show();
+    });
+
+    w->show();
+    return app.exec();
+}
+
+// NORMAL STARTUP PATH
+MainWindow window(cfgfile);
+
+/* Set license information before creating the first client instance */
+TT_SetLicenseInformation(_W(QString(REGISTRATION_NAME)), _W(QString(REGISTRATION_KEY)));
 
 #if defined(Q_OS_WIN32)
     HWND hWnd = reinterpret_cast<HWND>(window.winId());
@@ -324,12 +363,13 @@ int main(int argc, char* argv[])
 #else
     ttInst = TT_InitTeamTalkPoll();
 #endif
-    
-    window.loadSettings(); //load settings now that we have ttInst
 
-    window.show();
-    int ret = app.exec();
-    TT_CloseTeamTalk(ttInst);
-    return ret;
-}
+window.loadSettings();
+window.show();
+int ret = app.exec();
+TT_CloseTeamTalk(ttInst);
+return ret;
+
+
+
 
