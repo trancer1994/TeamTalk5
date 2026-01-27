@@ -1,4 +1,5 @@
 #include "MainWindow.h"
+#include "Wizard.h"
 
 #include <QStackedWidget>
 #include <QVBoxLayout>
@@ -161,18 +162,86 @@ void MainWindow::wireScreens()
 
 void MainWindow::applyAACDefaults()
 {
+    QSettings settings("BearWare.dk", "TeamTalk5");
+
+    Profile p;
+    p.inputMethod = (InputMethod)settings.value("aac/inputMethod",
+                                                (int)InputMethod::Touch).toInt();
+    p.layout = (LayoutType)settings.value("aac/layout",
+                                          (int)LayoutType::Grid).toInt();
+    p.vocabulary = (VocabularyType)settings.value("aac/vocabulary",
+                                                  (int)VocabularyType::Core).toInt();
+
+    applyProfileToAAC(p);
+}
+void MainWindow::applyProfileToAAC(const Profile& p)
+{
+    //
+    // 1. Input method → AACModeFlags
+    //
     AACModeFlags modes;
-    modes.largeTargets = true;
-    modes.auditoryFeedback = true;
-    modes.predictiveStrip = true;
+
+    switch (p.inputMethod) {
+    case InputMethod::Touch:
+        modes.largeTargets = true;
+        modes.auditoryFeedback = true;
+        modes.predictiveStrip = true;
+        break;
+
+    case InputMethod::Gaze:
+        modes.dwellEnabled = true;
+        modes.largeTargets = true;
+        break;
+
+    case InputMethod::Scanning:
+        modes.scanningEnabled = true;
+        break;
+
+    case InputMethod::Dwell:
+        modes.dwellEnabled = true;
+        break;
+    }
 
     m_aac->setModes(modes);
 
-    AACLayoutConfig cfg;
-    cfg.oneHandRightSide = true;
-    m_aac->setLayoutConfig(cfg);
-}
+    //
+    // 2. Layout → AACLayoutConfig
+    //
+    AACLayoutConfig layoutCfg;
 
+    switch (p.layout) {
+    case LayoutType::Grid:
+        layoutCfg.oneHandRightSide = false;
+        break;
+
+    case LayoutType::Keyboard:
+        layoutCfg.oneHandRightSide = true;
+        break;
+
+    case LayoutType::Both:
+        layoutCfg.oneHandRightSide = true;
+        break;
+    }
+
+    m_aac->setLayoutConfig(layoutCfg);
+
+    //
+    // 3. Vocabulary → symbol grid loader
+    //
+    switch (p.vocabulary) {
+    case VocabularyType::Core:
+        m_aacSymbolScreen->loadCoreVocabulary();
+        break;
+
+    case VocabularyType::Expanded:
+        m_aacSymbolScreen->loadExpandedVocabulary();
+        break;
+
+    case VocabularyType::Custom:
+        m_aacSymbolScreen->loadUserVocabulary();
+        break;
+    }
+}
 void MainWindow::showConnectScreen()
 {
     switchToScreen(m_connectScreen);
