@@ -1,0 +1,61 @@
+{
+  "grid": {
+    "rows": 6,
+    "cols": 8
+  },
+  "symbols": [
+    { "id": "I", "label": "I", "path": "qrc:/aac/symbols/core/I.png" },
+    { "id": "It", "label": "It", "path": "qrc:/aac/symbols/core/It.png" },
+    { "id": "again", "label": "Again", "path": "qrc:/aac/symbols/core/again.png" },
+    { "id": "all", "label": "All", "path": "qrc:/aac/symbols/core/all.png" },
+    { "id": "bad", "label": "Bad", "path": "qrc:/aac/symbols/core/bad.png" },
+    { "id": "big", "label": "Big", "path": "qrc:/aac/symbols/core/big.png" },
+    { "id": "close", "label": "Close", "path": "qrc:/aac/symbols/core/close.png" },
+    { "id": "dislike", "label": "Dislike", "path": "qrc:/aac/symbols/core/dislike.png" },
+
+    { "id": "drink", "label": "Drink", "path": "qrc:/aac/symbols/core/drink.png" },
+    { "id": "eat", "label": "Eat", "path": "qrc:/aac/symbols/core/eat.png" },
+    { "id": "finish", "label": "Finish", "path": "qrc:/aac/symbols/core/finish.png" },
+    { "id": "give", "label": "Give", "path": "qrc:/aac/symbols/core/give.png" },
+    { "id": "go", "label": "Go", "path": "qrc:/aac/symbols/core/go.png" },
+    { "id": "good", "label": "Good", "path": "qrc:/aac/symbols/core/good.png" },
+    { "id": "he", "label": "He", "path": "qrc:/aac/symbols/core/he.png" },
+    { "id": "help", "label": "Help", "path": "qrc:/aac/symbols/core/help.png" },
+
+    { "id": "here", "label": "Here", "path": "qrc:/aac/symbols/core/here.png" },
+    { "id": "how", "label": "How", "path": "qrc:/aac/symbols/core/how.png" },
+    { "id": "in", "label": "In", "path": "qrc:/aac/symbols/core/in.png" },
+    { "id": "like", "label": "Like", "path": "qrc:/aac/symbols/core/like.png" },
+    { "id": "look", "label": "Look", "path": "qrc:/aac/symbols/core/look.png" },
+    { "id": "make", "label": "Make", "path": "qrc:/aac/symbols/core/make.png" },
+    { "id": "more", "label": "More", "path": "qrc:/aac/symbols/core/more.png" },
+    { "id": "my", "label": "My", "path": "qrc:/aac/symbols/core/my.png" },
+
+    { "id": "no", "label": "No", "path": "qrc:/aac/symbols/core/no.png" },
+    { "id": "on", "label": "On", "path": "qrc:/aac/symbols/core/on.png" },
+    { "id": "open", "label": "Open", "path": "qrc:/aac/symbols/core/open.png" },
+    { "id": "out", "label": "Out", "path": "qrc:/aac/symbols/core/out.png" },
+    { "id": "play", "label": "Play", "path": "qrc:/aac/symbols/core/play.png" },
+    { "id": "she", "label": "She", "path": "qrc:/aac/symbols/core/she.png" },
+    { "id": "small", "label": "Small", "path": "qrc:/aac/symbols/core/small.png" },
+    { "id": "stop", "label": "Stop", "path": "qrc:/aac/symbols/core/stop.png" },
+
+    { "id": "take", "label": "Take", "path": "qrc:/aac/symbols/core/take.png" },
+    { "id": "that", "label": "That", "path": "qrc:/aac/symbols/core/that.png" },
+    { "id": "there", "label": "There", "path": "qrc:/aac/symbols/core/there.png" },
+    { "id": "they", "label": "They", "path": "qrc:/aac/symbols/core/they.png" },
+    { "id": "this", "label": "This", "path": "qrc:/aac/symbols/core/this.png" },
+    { "id": "turn", "label": "Turn", "path": "qrc:/aac/symbols/core/turn.png" },
+    { "id": "under", "label": "Under", "path": "qrc:/aac/symbols/core/under.png" },
+    { "id": "want", "label": "Want", "path": "qrc:/aac/symbols/core/want.png" },
+
+    { "id": "we", "label": "We", "path": "qrc:/aac/symbols/core/we.png" },
+    { "id": "what", "label": "What", "path": "qrc:/aac/symbols/core/what.png" },
+    { "id": "when", "label": "When", "path": "qrc:/aac/symbols/core/when.png" },
+    { "id": "where", "label": "Where", "path": "qrc:/aac/symbols/core/where.png" },
+    { "id": "which", "label": "Which", "path": "qrc:/aac/symbols/core/which.png" },
+    { "id": "who", "label": "Who", "path": "qrc:/aac/symbols/core/who.png" },
+    { "id": "why", "label": "Why", "path": "qrc:/aac/symbols/core/why.png" },
+    { "id": "you", "label": "You", "path": "qrc:/aac/symbols/core/you.png" }
+  ]
+}
