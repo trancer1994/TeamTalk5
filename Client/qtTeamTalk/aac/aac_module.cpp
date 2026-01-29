@@ -1,4 +1,5 @@
 #include "aac_module.h"
+#include "aacui.h"
 #include <QFile>
 #include <QJsonDocument>
 #include <QJsonObject>
