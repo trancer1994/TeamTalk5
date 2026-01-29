@@ -1,5 +1,6 @@
 <RCC>
-  <qresource prefix="/aac/symbols/core">
+  <qresource prefix="/aac">
+        <file>../../core48.json</file>
     <file>Symbols/Core/I.png</file>
     <file>Symbols/Core/It.png</file>
     <file>Symbols/Core/again.png</file>
@@ -52,6 +53,6 @@
     <file>Symbols/Core/which.png</file>
     <file>Symbols/Core/who.png</file>
     <file>Symbols/Core/why.png</file>
-    <file>Symbols/Core/you.png</file>
+<file>Symbols/Core/you.png</file>
   </qresource>
 </RCC>
