@@ -15,6 +15,10 @@ public:
 
     void setModel(AACGridModel* model);
 
+signals:
+    void symbolActivated(const QString& label);
+    void categorySelected(const QString& categoryId);
+
 private:
     AACGridModel* m_model = nullptr;
 };
