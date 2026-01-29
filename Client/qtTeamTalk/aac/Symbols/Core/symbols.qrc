@@ -1,0 +1,57 @@
+<RCC>
+  <qresource prefix="/aac/symbols/core">
+    <file>Symbols/Core/I.png</file>
+    <file>Symbols/Core/It.png</file>
+    <file>Symbols/Core/again.png</file>
+    <file>Symbols/Core/all.png</file>
+    <file>Symbols/Core/bad.png</file>
+    <file>Symbols/Core/big.png</file>
+    <file>Symbols/Core/close.png</file>
+    <file>Symbols/Core/dislike.png</file>
+
+    <file>Symbols/Core/drink.png</file>
+    <file>Symbols/Core/eat.png</file>
+    <file>Symbols/Core/finish.png</file>
+    <file>Symbols/Core/give.png</file>
+    <file>Symbols/Core/go.png</file>
+    <file>Symbols/Core/good.png</file>
+    <file>Symbols/Core/he.png</file>
+    <file>Symbols/Core/help.png</file>
+
+    <file>Symbols/Core/here.png</file>
+    <file>Symbols/Core/how.png</file>
+    <file>Symbols/Core/in.png</file>
+    <file>Symbols/Core/like.png</file>
+    <file>Symbols/Core/look.png</file>
+    <file>Symbols/Core/make.png</file>
+    <file>Symbols/Core/more.png</file>
+    <file>Symbols/Core/my.png</file>
+
+    <file>Symbols/Core/no.png</file>
+    <file>Symbols/Core/on.png</file>
+    <file>Symbols/Core/open.png</file>
+    <file>Symbols/Core/out.png</file>
+    <file>Symbols/Core/play.png</file>
+    <file>Symbols/Core/she.png</file>
+    <file>Symbols/Core/small.png</file>
+    <file>Symbols/Core/stop.png</file>
+
+    <file>Symbols/Core/take.png</file>
+    <file>Symbols/Core/that.png</file>
+    <file>Symbols/Core/there.png</file>
+    <file>Symbols/Core/they.png</file>
+    <file>Symbols/Core/this.png</file>
+    <file>Symbols/Core/turn.png</file>
+    <file>Symbols/Core/under.png</file>
+    <file>Symbols/Core/want.png</file>
+
+    <file>Symbols/Core/we.png</file>
+    <file>Symbols/Core/what.png</file>
+    <file>Symbols/Core/when.png</file>
+    <file>Symbols/Core/where.png</file>
+    <file>Symbols/Core/which.png</file>
+    <file>Symbols/Core/who.png</file>
+    <file>Symbols/Core/why.png</file>
+    <file>Symbols/Core/you.png</file>
+  </qresource>
+</RCC>
