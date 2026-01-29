@@ -7,6 +7,8 @@ class AACUI;
 
 namespace AAC {
 
+class AACGridModel;
+
 class AACModule : public QObject
 {
     Q_OBJECT
@@ -18,6 +20,7 @@ private:
     void loadCoreVocabulary();
 
     AACUI* m_ui;
+    AACGridModel* m_model;
     QJsonObject m_coreJson;
 };
 
