@@ -150,6 +150,9 @@ main.cpp mainwindow.cpp preferencesdlg.cpp uservideowidget.cpp
     serverdlg.ui useraccountdlg.ui chattemplatesdlg.ui
     resources.qrc mainwindow.rc
     )
+qt_add_resources(aac_symbols
+    Client/qtTeamTalk/aac/symbols.qrc
+)
 
 if (WIN32)
   list(APPEND QTTEAMTALK_SOURCES ${WINTOAST_SOURCES})
@@ -204,6 +207,7 @@ endif()
 
     if (MSVC)
       add_executable (${TEAMTALK_TARGET} WIN32 ${QTTEAMTALK_SOURCES})
+target_link_libraries(${TEAMTALK_TARGET} PRIVATE aac_symbols)
 
       option (BUILD_TEAMTALK_CLIENT_QT_DEPLOY "Deploy Qt shared libraries into 'windeployqt' subdirectory" ON)
 
@@ -258,14 +262,15 @@ endif()
       endif()
     elseif (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
       add_executable (${TEAMTALK_TARGET} ${QTTEAMTALK_SOURCES})
+target_link_libraries(${TEAMTALK_TARGET} PRIVATE aac_symbols)
       set_target_properties(${TEAMTALK_TARGET} PROPERTIES
         MACOSX_BUNDLE TRUE
         MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/Info.plist)
       target_link_options(${TEAMTALK_TARGET} PRIVATE -sectcreate __TEXT __info_plist ${CMAKE_CURRENT_SOURCE_DIR}/Info.plist)
     else()
       add_executable (${TEAMTALK_TARGET} ${QTTEAMTALK_SOURCES})
+target_link_libraries(${TEAMTALK_TARGET} PRIVATE aac_symbols)
     endif()
-
     if (BUILD_TEAMTALK_LIBRARY_DLL)
       target_include_directories (${TEAMTALK_TARGET} PUBLIC ./)
       target_link_libraries (${TEAMTALK_TARGET} ${TEAMTALK_LINK_FLAGS} TeamTalk5DLL)
