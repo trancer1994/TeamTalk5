@@ -1,17 +1,22 @@
 #include "aac_module.h"
 #include "aacui.h"
+#include "aac_grid_model.h"
+
 #include <QFile>
 #include <QJsonDocument>
-#include <QJsonObject>
-#include <QJsonArray>
+#include <QJsonParseError>
 #include <QDebug>
 
 namespace AAC {
 
 AACModule::AACModule()
     : m_ui(new AACUI())
+    , m_model(new AACGridModel())
 {
     loadCoreVocabulary();
+    m_model->loadFromJson(m_coreJson);
+
+    m_ui->setModel(m_model);   // we add this next
 }
 
 void AACModule::loadCoreVocabulary()
@@ -23,21 +28,18 @@ void AACModule::loadCoreVocabulary()
         return;
     }
 
-    QByteArray data = file.readAll();
+    const QByteArray data = file.readAll();
     file.close();
 
     QJsonParseError err;
-    QJsonDocument doc = QJsonDocument::fromJson(data, &err);
+    const QJsonDocument doc = QJsonDocument::fromJson(data, &err);
 
     if (err.error != QJsonParseError::NoError) {
-        qWarning() << "AACModule: JSON parse error in core48.json:" << err.errorString();
+        qWarning() << "AACModule: JSON parse error:" << err.errorString();
         return;
     }
 
     m_coreJson = doc.object();
-
-    // Later: pass this into your grid model or UI
-    qDebug() << "AACModule: Loaded core vocabulary with keys:" << m_coreJson.keys();
 }
 
 } // namespace AAC
