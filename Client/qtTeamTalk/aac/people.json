@@ -1,35 +1,115 @@
 {
+  "grid": {
+    "rows": 8,
+    "cols": 10
+  },
   "symbols": [
-    { "id": "person_actor", "text": "actor", "path": "Categories/People/actor.png" },
-    { "id": "person_airplane_pilot", "text": "airplane pilot", "path": "Categories/People/airplane pilot.png" },
-    { "id": "person_artist", "text": "artist", "path": "Categories/People/artist.png" },
-    { "id": "person_aunt", "text": "aunt", "path": "Categories/People/aunt.png" },
-    { "id": "person_baby", "text": "baby", "path": "Categories/People/baby.png" },
-    { "id": "person_boy", "text": "boy", "path": "Categories/People/boy.png" },
-    { "id": "person_brother", "text": "brother", "path": "Categories/People/brother.png" },
-    { "id": "person_businessperson", "text": "businessperson", "path": "Categories/People/businessperson.png" },
-    { "id": "person_child", "text": "child", "path": "Categories/People/child.png" },
-    { "id": "person_cousin", "text": "cousin", "path": "Categories/People/cousin.png" },
-    { "id": "person_dad", "text": "dad", "path": "Categories/People/dad.png" },
-    { "id": "person_dentist", "text": "dentist", "path": "Categories/People/dentist.png" },
-    { "id": "person_doctor", "text": "doctor", "path": "Categories/People/doctor.png" },
-    { "id": "person_family", "text": "family", "path": "Categories/People/family.png" },
-    { "id": "person_firefighter", "text": "firefighter", "path": "Categories/People/firefighter.png" },
-    { "id": "person_girl", "text": "girl", "path": "Categories/People/girl.png" },
-    { "id": "person_grandfather", "text": "grandfather", "path": "Categories/People/grandfather.png" },
-    { "id": "person_grandmother", "text": "grandmother", "path": "Categories/People/grandmother.png" },
-    { "id": "person_hairdresser", "text": "hairdresser", "path": "Categories/People/hairdresser.png" },
-    { "id": "person_man", "text": "man", "path": "Categories/People/man.png" },
-    { "id": "person_me", "text": "me", "path": "Categories/People/me.png" },
-    { "id": "person_mom", "text": "mom", "path": "Categories/People/mom.png" },
-    { "id": "person_nurse", "text": "nurse", "path": "Categories/People/nurse.png" },
-    { "id": "person_police_officer", "text": "police officer", "path": "Categories/People/police officer.png" },
-    { "id": "person_principal", "text": "principal", "path": "Categories/People/principal.png" },
-    { "id": "person_sister", "text": "sister", "path": "Categories/People/sister.png" },
-    { "id": "person_student", "text": "student", "path": "Categories/People/student.png" },
-    { "id": "person_teacher", "text": "teacher", "path": "Categories/People/teacher.png" },
-    { "id": "person_uncle", "text": "uncle", "path": "Categories/People/uncle.png" },
-    { "id": "person_woman", "text": "woman", "path": "Categories/People/woman.png" },
-    { "id": "person_writer", "text": "writer", "path": "Categories/People/writer.png" }
+
+    /* -------------------- FAMILY -------------------- */
+
+    { "id": "person_mum", "label": "Mum", "path": "qrc:/aac/symbols/people/mum.png" },
+    { "id": "person_dad", "label": "Dad", "path": "qrc:/aac/symbols/people/dad.png" },
+    { "id": "person_father", "label": "Father", "path": "qrc:/aac/symbols/people/father.png" },
+    { "id": "person_stepfather", "label": "Stepfather", "path": "qrc:/aac/symbols/people/stepfather.png" },
+    { "id": "person_daughter", "label": "Daughter", "path": "qrc:/aac/symbols/people/daughter.png" },
+    { "id": "person_son", "label": "Son", "path": "qrc:/aac/symbols/people/son.png" },
+    { "id": "person_sister", "label": "Sister", "path": "qrc:/aac/symbols/people/sister.png" },
+    { "id": "person_brother", "label": "Brother", "path": "qrc:/aac/symbols/people/brother.png" },
+    { "id": "person_grandmother", "label": "Grandmother", "path": "qrc:/aac/symbols/people/grandmother.png" },
+    { "id": "person_grandfather", "label": "Grandfather", "path": "qrc:/aac/symbols/people/grandfather.png" },
+
+    { "id": "person_aunt", "label": "Aunt", "path": "qrc:/aac/symbols/people/aunt.png" },
+    { "id": "person_uncle", "label": "Uncle", "path": "qrc:/aac/symbols/people/uncle.png" },
+    { "id": "person_niece", "label": "Niece", "path": "qrc:/aac/symbols/people/niece.png" },
+    { "id": "person_nephew", "label": "Nephew", "path": "qrc:/aac/symbols/people/nephew.png" },
+    { "id": "person_cousin", "label": "Cousin", "path": "qrc:/aac/symbols/people/cousin.png" },
+    { "id": "person_wife", "label": "Wife", "path": "qrc:/aac/symbols/people/wife.png" },
+    { "id": "person_husband", "label": "Husband", "path": "qrc:/aac/symbols/people/husband.png" },
+    { "id": "person_family", "label": "Family", "path": "qrc:/aac/symbols/people/family.png" },
+
+    /* -------------------- FRIENDS & SOCIAL -------------------- */
+
+    { "id": "person_friend", "label": "Friend", "path": "qrc:/aac/symbols/people/friend.png" },
+    { "id": "person_neighbour", "label": "Neighbour", "path": "qrc:/aac/symbols/people/neighbour.png" },
+    { "id": "person_boyfriend", "label": "Boyfriend", "path": "qrc:/aac/symbols/people/boyfriend.png" },
+    { "id": "person_girlfriend", "label": "Girlfriend", "path": "qrc:/aac/symbols/people/girlfriend.png" },
+    { "id": "person_classmate", "label": "Classmate", "path": "qrc:/aac/symbols/people/classmate.png" },
+
+    /* -------------------- HELPERS & SUPPORT ROLES -------------------- */
+
+    { "id": "person_nurse", "label": "Nurse", "path": "qrc:/aac/symbols/people/nurse.png" },
+    { "id": "person_doctor", "label": "Doctor", "path": "qrc:/aac/symbols/people/doctor.png" },
+    { "id": "person_dentist", "label": "Dentist", "path": "qrc:/aac/symbols/people/dentist.png" },
+    { "id": "person_midwife", "label": "Midwife", "path": "qrc:/aac/symbols/people/midwife.png" },
+    { "id": "person_optician", "label": "Optician", "path": "qrc:/aac/symbols/people/optician.png" },
+    { "id": "person_pharmacist", "label": "Pharmacist", "path": "qrc:/aac/symbols/people/pharmacist.png" },
+    { "id": "person_psychiatrist", "label": "Psychiatrist", "path": "qrc:/aac/symbols/people/psychiatrist.png" },
+    { "id": "person_psychologist", "label": "Psychologist", "path": "qrc:/aac/symbols/people/psychologist.png" },
+    { "id": "person_radiographer", "label": "Radiographer", "path": "qrc:/aac/symbols/people/radiographer.png" },
+    { "id": "person_radiologist", "label": "Radiologist", "path": "qrc:/aac/symbols/people/radiologist.png" },
+
+    { "id": "person_physical_therapist", "label": "Physical Therapist", "path": "qrc:/aac/symbols/people/physical therapist.png" },
+    { "id": "person_occupational_therapist", "label": "Occupational Therapist", "path": "qrc:/aac/symbols/people/occupational therapist.png" },
+    { "id": "person_speech_therapist", "label": "Speech Therapist", "path": "qrc:/aac/symbols/people/speech therapist.png" },
+    { "id": "person_slt", "label": "Speech and Language Teacher", "path": "qrc:/aac/symbols/people/speech and language teacher.png" },
+    { "id": "person_social_worker", "label": "Social Worker", "path": "qrc:/aac/symbols/people/social worker.png" },
+    { "id": "person_carer", "label": "Carer", "path": "qrc:/aac/symbols/people/carer.png" },
+    { "id": "person_support_teacher", "label": "Support Teacher", "path": "qrc:/aac/symbols/people/support teacher.png" },
+
+    /* -------------------- EDUCATION -------------------- */
+
+    { "id": "person_teacher", "label": "Teacher", "path": "qrc:/aac/symbols/people/teacher.png" },
+    { "id": "person_head_teacher", "label": "Head Teacher", "path": "qrc:/aac/symbols/people/head teacher.png" },
+    { "id": "person_student", "label": "Student", "path": "qrc:/aac/symbols/people/student.png" },
+
+    /* -------------------- EMERGENCY & SAFETY -------------------- */
+
+    { "id": "person_police_officer", "label": "Police Officer", "path": "qrc:/aac/symbols/people/police officer.png" },
+    { "id": "person_firefighter", "label": "Firefighter", "path": "qrc:/aac/symbols/people/firefighter.png" },
+    { "id": "person_lifeguard", "label": "Lifeguard", "path": "qrc:/aac/symbols/people/lifeguard.png" },
+    { "id": "person_security_guard", "label": "Security Guard", "path": "qrc:/aac/symbols/people/security guard.png" },
+
+    /* -------------------- COMMUNITY & SERVICE ROLES -------------------- */
+
+    { "id": "person_bus_driver", "label": "Bus Driver", "path": "qrc:/aac/symbols/people/bus driver.png" },
+    { "id": "person_postman", "label": "Postman", "path": "qrc:/aac/symbols/people/postman.png" },
+    { "id": "person_shop_assistant", "label": "Shop Assistant", "path": "qrc:/aac/symbols/people/shop assistant.png" },
+    { "id": "person_cashier", "label": "Cashier", "path": "qrc:/aac/symbols/people/cashier.png" },
+    { "id": "person_service_technician", "label": "Service Technician", "path": "qrc:/aac/symbols/people/service technician.png" },
+    { "id": "person_computer_technician", "label": "Computer Technician", "path": "qrc:/aac/symbols/people/computer technician.png" },
+    { "id": "person_engineer", "label": "Engineer", "path": "qrc:/aac/symbols/people/engineer.png" },
+    { "id": "person_manager", "label": "Manager", "path": "qrc:/aac/symbols/people/manager.png" },
+    { "id": "person_volunteer", "label": "Volunteer", "path": "qrc:/aac/symbols/people/volunteer.png" },
+
+    /* -------------------- PROFESSIONAL ROLES -------------------- */
+
+    { "id": "person_actor", "label": "Actor", "path": "qrc:/aac/symbols/people/actor.png" },
+    { "id": "person_voice_actor", "label": "Voice Actor", "path": "qrc:/aac/symbols/people/voice actor.png" },
+    { "id": "person_presenter", "label": "Presenter", "path": "qrc:/aac/symbols/people/presenter.png" },
+    { "id": "person_journalist", "label": "Journalist", "path": "qrc:/aac/symbols/people/journalist.png" },
+    { "id": "person_author", "label": "Author", "path": "qrc:/aac/symbols/people/author.png" },
+    { "id": "person_writer", "label": "Writer", "path": "qrc:/aac/symbols/people/writer.png" },
+    { "id": "person_photographer", "label": "Photographer", "path": "qrc:/aac/symbols/people/photographer.png" },
+    { "id": "person_painter", "label": "Painter", "path": "qrc:/aac/symbols/people/painter.png" },
+    { "id": "person_artist", "label": "Artist", "path": "qrc:/aac/symbols/people/artist.png" },
+    { "id": "person_musician", "label": "Musician", "path": "qrc:/aac/symbols/people/musician.png" },
+
+    { "id": "person_singer", "label": "Singer", "path": "qrc:/aac/symbols/people/singer.png" },
+    { "id": "person_dancer", "label": "Dancer", "path": "qrc:/aac/symbols/people/dancer.png" },
+    { "id": "person_interior_decorator", "label": "Interior Decorator", "path": "qrc:/aac/symbols/people/interior decorator.png" },
+    { "id": "person_interpreter", "label": "Interpreter", "path": "qrc:/aac/symbols/people/interpreter.png" },
+    { "id": "person_politician", "label": "Politician", "path": "qrc:/aac/symbols/people/politician.png" },
+    { "id": "person_nutritionist", "label": "Nutritionist", "path": "qrc:/aac/symbols/people/nutritionist.png" },
+    { "id": "person_chemist", "label": "Chemist", "path": "qrc:/aac/symbols/people/chemist.png" },
+    { "id": "person_gardener", "label": "Gardener", "path": "qrc:/aac/symbols/people/gardener.png" },
+    { "id": "person_farm_worker", "label": "Farm Worker", "path": "qrc:/aac/symbols/people/farm worker.png" },
+    { "id": "person_farmer", "label": "Farmer", "path": "qrc:/aac/symbols/people/farmer.png" },
+    { "id": "person_chef", "label": "Chef", "path": "qrc:/aac/symbols/people/chef.png" },
+
+    /* -------------------- OTHER -------------------- */
+
+    { "id": "person_worker", "label": "Worker", "path": "qrc:/aac/symbols/people/worker.png" }
+
+    /* Final slot intentionally left empty */
   ]
 }
