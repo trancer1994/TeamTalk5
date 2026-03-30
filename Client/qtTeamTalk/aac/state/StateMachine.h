@@ -1,41 +1,47 @@
 #pragma once
 
 #include <QObject>
-#include "BackendEvents.h"
+#include <QString>
 
-class BackendAdapter;
-class MainWindow;
+#include "aac/backend/channelinfo.h"
+#include "aac/backend/BackendEvents.h"
+
+// Very thin state machine wrapper.
+// Your BackendAdapter already drives most transitions.
+// This class exists mainly so MainWindow can remain clean.
 
 class StateMachine : public QObject {
     Q_OBJECT
 public:
-    explicit StateMachine(QObject* parent = nullptr);
-
-    // AppController attaches components here
-    void attachBackend(BackendAdapter* backend);
-    void attachMainWindow(MainWindow* window);
+    explicit StateMachine(QObject* parent = nullptr) = default;
 
 signals:
-    // StateMachine → UI (MainWindow reacts to these)
-    void uiShouldShowConnecting();
-    void uiShouldShowConnected();
-    void uiShouldShowDisconnected();
-    void uiShouldShowError(const QString& message);
+    // High‑level navigation signals (MainWindow listens to these)
+    void goToConnect();
+    void goToConnecting();
+    void goToChannelList();
+    void goToInChannel(int channelId, const QString& channelName);
+
+    // Backend‑driven events
+    void connected();
+    void connectionFailed(const QString& reason);
+    void disconnected();
+    void channelsUpdated(const QList<ChannelInfo>& channels);
+    void joinedChannel(int channelId, const QString& channelName);
+    void leftChannel();
+    void selfVoiceState(SelfVoiceState state);
+    void otherUserVoiceState(const OtherUserVoiceEvent& event);
+    void eventMessage(const QString& message);
 
 public slots:
-    // Backend → StateMachine
-    void onConnectionStateChanged(ConnectionState state);
-    void onChannelEvent(const ChannelEvent& event);
-    void onErrorOccurred(const ErrorEvent& error);
-
-private:
-    BackendAdapter* m_backend = nullptr;
-    MainWindow* m_window = nullptr;
-
-    // Internal state
-    ConnectionState m_connectionState = ConnectionState::Disconnected;
-    int m_currentChannelId = -1;
-
-    // Internal helper to update UI based on state
-    void updateUI();
+    // These slots are called by BackendAdapter
+    void onConnected()                { emit connected(); }
+    void onConnectionFailed(const QString& r) { emit connectionFailed(r); }
+    void onDisconnected()             { emit disconnected(); }
+    void onChannelsUpdated(const QList<ChannelInfo>& c) { emit channelsUpdated(c); }
+    void onJoinedChannel(int id, const QString& name) { emit joinedChannel(id, name); }
+    void onLeftChannel()              { emit leftChannel(); }
+    void onSelfVoiceState(SelfVoiceState s) { emit selfVoiceState(s); }
+    void onOtherUserVoiceState(const OtherUserVoiceEvent& e) { emit otherUserVoiceState(e); }
+    void onEventMessage(const QString& m) { emit eventMessage(m); }
 };
