@@ -1,0 +1,28 @@
+{
+  "grid": {
+    "rows": 8,
+    "cols": 10
+  },
+  "symbols": [
+
+    /* -------------------- NUMBERS -------------------- */
+
+    { "id": "number_0",  "label": "0",  "path": "qrc:/aac/symbols/numbers/0.png" },
+    { "id": "number_1",  "label": "1",  "path": "qrc:/aac/symbols/numbers/1.png" },
+    { "id": "number_2",  "label": "2",  "path": "qrc:/aac/symbols/numbers/2.png" },
+    { "id": "number_3",  "label": "3",  "path": "qrc:/aac/symbols/numbers/3.png" },
+    { "id": "number_4",  "label": "4",  "path": "qrc:/aac/symbols/numbers/4.png" },
+    { "id": "number_5",  "label": "5",  "path": "qrc:/aac/symbols/numbers/5.png" },
+    { "id": "number_6",  "label": "6",  "path": "qrc:/aac/symbols/numbers/6.png" },
+    { "id": "number_7",  "label": "7",  "path": "qrc:/aac/symbols/numbers/7.png" },
+    { "id": "number_8",  "label": "8",  "path": "qrc:/aac/symbols/numbers/8.png" },
+    { "id": "number_9",  "label": "9",  "path": "qrc:/aac/symbols/numbers/9.png" },
+    { "id": "number_10", "label": "10", "path": "qrc:/aac/symbols/numbers/10.png" },
+
+    /* -------------------- META -------------------- */
+
+    { "id": "number_more", "label": "More", "path": "qrc:/aac/symbols/numbers/more.png" }
+
+    /* Final slot intentionally left empty */
+  ]
+}
