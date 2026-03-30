@@ -1,0 +1,40 @@
+{
+  "grid": {
+    "rows": 8,
+    "cols": 10
+  },
+  "symbols": [
+
+    /* -------------------- TRAVEL -------------------- */
+
+    { "id": "place_airport",       "label": "Airport",       "path": "qrc:/aac/symbols/places/airport.png" },
+    { "id": "place_train_station", "label": "Train Station", "path": "qrc:/aac/symbols/places/train station.png" },
+
+    /* -------------------- FOOD & SOCIAL -------------------- */
+
+    { "id": "place_cafe",       "label": "Cafe",       "path": "qrc:/aac/symbols/places/cafe.png" },
+    { "id": "place_restaurant", "label": "Restaurant", "path": "qrc:/aac/symbols/places/restaurant.png" },
+
+    /* -------------------- COMMUNITY -------------------- */
+
+    { "id": "place_library",     "label": "Library",     "path": "qrc:/aac/symbols/places/library.png" },
+    { "id": "place_shop",        "label": "Shop",        "path": "qrc:/aac/symbols/places/shop.png" },
+    { "id": "place_supermarket", "label": "Supermarket", "path": "qrc:/aac/symbols/places/supermarket.png" },
+
+    /* -------------------- EDUCATION -------------------- */
+
+    { "id": "place_school",    "label": "School",    "path": "qrc:/aac/symbols/places/school.png" },
+    { "id": "place_university","label": "University","path": "qrc:/aac/symbols/places/university.png" },
+
+    /* -------------------- HOME & ENVIRONMENT -------------------- */
+
+    { "id": "place_house", "label": "House", "path": "qrc:/aac/symbols/places/house.png" },
+    { "id": "place_farm",  "label": "Farm",  "path": "qrc:/aac/symbols/places/farm.png" },
+
+    /* -------------------- HEALTH -------------------- */
+
+    { "id": "place_hospital", "label": "Hospital", "path": "qrc:/aac/symbols/places/hospital.png" }
+
+    /* Final slot intentionally left empty */
+  ]
+}
