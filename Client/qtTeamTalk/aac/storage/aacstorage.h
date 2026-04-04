@@ -13,11 +13,13 @@ public:
 
     QList<ServerInfo> loadPersonalServers() const;
     void savePersonalServers(const QList<ServerInfo>& servers);
-
     QList<ServerInfo> loadLatestHosts() const;
     void saveLatestHosts(const QList<ServerInfo>& hosts);
 
-    bool loadPublicCache(QByteArray& xml, QDateTime& timestamp) const;
+QVariantList numbers() const;
+QVariantList places() const;
+QVariantList coreSymbols() const;
+bool loadPublicCache(QByteArray& xml, QDateTime& timestamp) const;
     void savePublicCache(const QByteArray& xml, const QDateTime& timestamp);
 
 private:
@@ -25,7 +27,19 @@ private:
     QString settingsGroupLatest()   const { return QStringLiteral("aac/latest_hosts"); }
     QString cacheFilePath() const;
     QString cacheMetaPath() const;
+QString aacDataDir() const;
+QString numbersPath() const;
+QString placesPath() const;
+QString coreSymbolsPath() const;
 
-    ServerInfo fromSettings(const QString& prefix) const;
+ mutable QVariantList m_numbersCache;
+mutable QVariantList m_placesCache;
+mutable QVariantList m_coreSymbolsCache;
+
+mutable bool m_numbersLoaded = false;
+mutable bool m_placesLoaded = false;
+mutable bool m_coreLoaded = false;
+
+ServerInfo fromSettings(const QString& prefix) const;
     void toSettings(const QString& prefix, const ServerInfo& info) const;
 };
