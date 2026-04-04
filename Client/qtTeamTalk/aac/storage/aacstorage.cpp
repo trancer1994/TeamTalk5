@@ -154,3 +154,69 @@ void AACStorage::savePublicCache(const QByteArray& xml, const QDateTime& timesta
         meta.close();
     }
 }
+
+QString AACStorage::aacDataDir() const
+{
+    return QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)
+           + QStringLiteral("/aac");
+}
+
+QString AACStorage::numbersPath() const
+{
+    return aacDataDir() + QStringLiteral("/numbers.json");
+}
+
+QString AACStorage::placesPath() const
+{
+    return aacDataDir() + QStringLiteral("/places.json");
+}
+
+QString AACStorage::coreSymbolsPath() const
+{
+    return aacDataDir() + QStringLiteral("/core48.json");
+}
+#include <QJsonDocument>
+#include <QJsonArray>
+#include <QJsonObject>
+
+QVariantList AACStorage::loadJsonArray(const QString& path) const
+{
+    QFile f(path);
+    if (!f.open(QIODevice::ReadOnly))
+        return {};
+
+    const auto data = f.readAll();
+    f.close();
+
+    const auto doc = QJsonDocument::fromJson(data);
+    if (!doc.isArray())
+        return {};
+
+    return doc.array().toVariantList();
+}
+QVariantList AACStorage::numbers() const
+{
+    if (!m_numbersLoaded) {
+        m_numbersCache = loadJsonArray(numbersPath());
+        m_numbersLoaded = true;
+    }
+    return m_numbersCache;
+}
+
+QVariantList AACStorage::places() const
+{
+    if (!m_placesLoaded) {
+        m_placesCache = loadJsonArray(placesPath());
+        m_placesLoaded = true;
+    }
+    return m_placesCache;
+}
+
+QVariantList AACStorage::coreSymbols() const
+{
+    if (!m_coreLoaded) {
+        m_coreSymbolsCache = loadJsonArray(coreSymbolsPath());
+        m_coreLoaded = true;
+    }
+    return m_coreSymbolsCache;
+}
