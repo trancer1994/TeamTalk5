@@ -31,6 +31,7 @@ QString aacDataDir() const;
 QString numbersPath() const;
 QString placesPath() const;
 QString coreSymbolsPath() const;
+QVariantList loadJsonArray(const QString& path) const;
 
  mutable QVariantList m_numbersCache;
 mutable QVariantList m_placesCache;
