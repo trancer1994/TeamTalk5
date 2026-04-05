@@ -1,222 +1,168 @@
 #include "aacstorage.h"
-#include <QSettings>
+
 #include <QStandardPaths>
-#include <QDir>
 #include <QFile>
-#include <QDataStream>
+#include <QJsonDocument>
+#include <QJsonObject>
+
+#include "AACFramework.h"
 
 AACStorage::AACStorage() = default;
 
-ServerInfo AACStorage::fromSettings(const QString& prefix) const
+QString AACStorage::storagePath() const
 {
-    QSettings s;
-    ServerInfo info;
-    info.name          = s.value(prefix + "/name").toString();
-    info.host          = s.value(prefix + "/host").toString();
-    info.tcpPort       = s.value(prefix + "/tcpPort", 10333).toInt();
-    info.udpPort       = s.value(prefix + "/udpPort", 10333).toInt();
-    info.encrypted     = s.value(prefix + "/encrypted", false).toBool();
-    info.username      = s.value(prefix + "/username").toString();
-    info.password      = s.value(prefix + "/password").toString();
-    info.nickname      = s.value(prefix + "/nickname").toString();
-    info.statusMessage = s.value(prefix + "/statusMessage").toString();
-    info.channel       = s.value(prefix + "/channel").toString();
-    info.channelPassword = s.value(prefix + "/channelPassword").toString();
-    info.joinCode      = s.value(prefix + "/joinCode").toString();
-    info.country       = s.value(prefix + "/country").toString();
-    info.userCount     = s.value(prefix + "/userCount", 0).toInt();
-    info.motd          = s.value(prefix + "/motd").toString();
-    info.serverName    = s.value(prefix + "/serverName").toString();
-    info.source        = static_cast<ServerSource>(s.value(prefix + "/source",
-                                                           static_cast<int>(ServerSource::Local)).toInt());
-    info.lastSeen      = s.value(prefix + "/lastSeen").toDateTime();
-    info.updateId();
-    return info;
+    const QString dir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+    return dir + "/aac_state.json";
 }
 
-void AACStorage::toSettings(const QString& prefix, const ServerInfo& info) const
+QJsonObject AACStorage::loadJson() const
 {
-    QSettings s;
-    s.setValue(prefix + "/name", info.name);
-    s.setValue(prefix + "/host", info.host);
-    s.setValue(prefix + "/tcpPort", info.tcpPort);
-    s.setValue(prefix + "/udpPort", info.udpPort);
-    s.setValue(prefix + "/encrypted", info.encrypted);
-    s.setValue(prefix + "/username", info.username);
-    s.setValue(prefix + "/password", info.password);
-    s.setValue(prefix + "/nickname", info.nickname);
-    s.setValue(prefix + "/statusMessage", info.statusMessage);
-    s.setValue(prefix + "/channel", info.channel);
-    s.setValue(prefix + "/channelPassword", info.channelPassword);
-    s.setValue(prefix + "/joinCode", info.joinCode);
-    s.setValue(prefix + "/country", info.country);
-    s.setValue(prefix + "/userCount", info.userCount);
-    s.setValue(prefix + "/motd", info.motd);
-    s.setValue(prefix + "/serverName", info.serverName);
-    s.setValue(prefix + "/source", static_cast<int>(info.source));
-    s.setValue(prefix + "/lastSeen", info.lastSeen);
-}
+    QFile f(storagePath());
+    if (!f.exists())
+        return QJsonObject();
 
-QList<ServerInfo> AACStorage::loadPersonalServers() const
-{
-    QSettings s;
-    QList<ServerInfo> result;
-    s.beginGroup(settingsGroupPersonal());
-    int count = s.value("count", 0).toInt();
-    for (int i = 0; i < count; ++i) {
-        result.append(fromSettings(QString::number(i)));
-    }
-    s.endGroup();
-    return result;
-}
-
-void AACStorage::savePersonalServers(const QList<ServerInfo>& servers)
-{
-    QSettings s;
-    s.beginGroup(settingsGroupPersonal());
-    s.remove(QString()); // clear group
-    s.setValue("count", servers.size());
-    for (int i = 0; i < servers.size(); ++i) {
-        toSettings(QString::number(i), servers[i]);
-    }
-    s.endGroup();
-}
-
-QList<ServerInfo> AACStorage::loadLatestHosts() const
-{
-    QSettings s;
-    QList<ServerInfo> result;
-    s.beginGroup(settingsGroupLatest());
-    int count = s.value("count", 0).toInt();
-    for (int i = 0; i < count; ++i) {
-        result.append(fromSettings(QString::number(i)));
-    }
-    s.endGroup();
-    return result;
-}
-
-void AACStorage::saveLatestHosts(const QList<ServerInfo>& hosts)
-{
-    QSettings s;
-    s.beginGroup(settingsGroupLatest());
-    s.remove(QString());
-    s.setValue("count", hosts.size());
-    for (int i = 0; i < hosts.size(); ++i) {
-        toSettings(QString::number(i), hosts[i]);
-    }
-    s.endGroup();
-}
-
-QString AACStorage::cacheFilePath() const
-{
-    const auto dir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
-    QDir d(dir);
-    d.mkpath(QStringLiteral("."));
-    return d.filePath(QStringLiteral("aac_serverlist_cache.xml"));
-}
-
-QString AACStorage::cacheMetaPath() const
-{
-    const auto dir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
-    QDir d(dir);
-    d.mkpath(QStringLiteral("."));
-    return d.filePath(QStringLiteral("aac_serverlist_cache.meta"));
-}
-
-bool AACStorage::loadPublicCache(QByteArray& xml, QDateTime& timestamp) const
-{
-    QFile f(cacheFilePath());
     if (!f.open(QIODevice::ReadOnly))
-        return false;
-    xml = f.readAll();
-    f.close();
+        return QJsonObject();
 
-    QFile meta(cacheMetaPath());
-    if (!meta.open(QIODevice::ReadOnly))
-        return false;
-    QDataStream in(&meta);
-    in >> timestamp;
-    return true;
+    const QJsonDocument doc = QJsonDocument::fromJson(f.readAll());
+    if (!doc.isObject())
+        return QJsonObject();
+
+    return doc.object();
 }
 
-void AACStorage::savePublicCache(const QByteArray& xml, const QDateTime& timestamp)
+void AACStorage::saveJson(const QJsonObject& obj) const
 {
-    QFile f(cacheFilePath());
-    if (f.open(QIODevice::WriteOnly)) {
-        f.write(xml);
-        f.close();
+    QFile f(storagePath());
+    if (!f.open(QIODevice::WriteOnly))
+        return;
+
+    f.write(QJsonDocument(obj).toJson(QJsonDocument::Indented));
+}
+
+void AACStorage::hydrate(AACAccessibilityManager& mgr)
+{
+    const QJsonObject root = loadJson();
+    if (root.isEmpty())
+        return;
+
+    if (root.contains("activeCategory"))
+        mgr.setActiveCategory(root["activeCategory"].toString());
+
+    if (root.contains("profile"))
+        mgr.setProfile(static_cast<AACProfile>(root["profile"].toInt()));
+
+    if (root.contains("predictionEnabled"))
+        mgr.setPredictionEnabled(root["predictionEnabled"].toBool());
+
+    if (root.contains("modes")) {
+        AACModeFlags m;
+        const QJsonObject o = root["modes"].toObject();
+        m.largeTargets    = o["largeTargets"].toBool();
+        m.dwell           = o["dwell"].toBool();
+        m.scanning        = o["scanning"].toBool();
+        m.auditoryFeedback= o["auditoryFeedback"].toBool();
+        m.hapticFeedback  = o["hapticFeedback"].toBool();
+        m.deepWells       = o["deepWells"].toBool();
+        m.oneHandLayout   = o["oneHandLayout"].toBool();
+        m.ultraMinimal    = o["ultraMinimal"].toBool();
+        m.predictiveStrip = o["predictiveStrip"].toBool();
+        mgr.setModes(m);
     }
 
-    QFile meta(cacheMetaPath());
-    if (meta.open(QIODevice::WriteOnly)) {
-        QDataStream out(&meta);
-        out << timestamp;
-        meta.close();
+    if (root.contains("dwellConfig")) {
+        AACDwellConfig c;
+        const QJsonObject o = root["dwellConfig"].toObject();
+        c.dwellDurationMs = o["dwellDurationMs"].toInt();
+        mgr.setDwellConfig(c);
+    }
+
+    if (root.contains("scanningConfig")) {
+        AACScanningConfig c;
+        const QJsonObject o = root["scanningConfig"].toObject();
+        c.stepIntervalMs = o["stepIntervalMs"].toInt();
+        mgr.setScanningConfig(c);
+    }
+
+    if (root.contains("layoutConfig")) {
+        AACLayoutConfig c;
+        const QJsonObject o = root["layoutConfig"].toObject();
+        c.oneHandRightSide = o["oneHandRightSide"].toBool();
+        mgr.setLayoutConfig(c);
+    }
+
+    if (root.contains("speechConfig")) {
+        AACSpeechConfig c;
+        const QJsonObject o = root["speechConfig"].toObject();
+        c.voiceName          = o["voiceName"].toString();
+        c.rate               = o["rate"].toDouble();
+        c.pitch              = o["pitch"].toDouble();
+        c.volume             = o["volume"].toDouble();
+        c.speakAsYouTypeMode = static_cast<AACSpeechConfig::SpeakAsYouTypeMode>(o["speakAsYouTypeMode"].toInt());
+        c.echoOnSend         = o["echoOnSend"].toBool();
+        c.highIntelligible   = o["highIntelligible"].toBool();
+        c.lowIntensity       = o["lowIntensity"].toBool();
+        mgr.setSpeechConfig(c);
     }
 }
 
-QString AACStorage::aacDataDir() const
+void AACStorage::persist(const AACAccessibilityManager& mgr)
 {
-    return QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)
-           + QStringLiteral("/aac");
-}
+    QJsonObject root;
 
-QString AACStorage::numbersPath() const
-{
-    return aacDataDir() + QStringLiteral("/numbers.json");
-}
+    root["activeCategory"]    = mgr.activeCategory();
+    root["profile"]           = static_cast<int>(mgr.profile());
+    root["predictionEnabled"] = mgr.predictionEnabled();
 
-QString AACStorage::placesPath() const
-{
-    return aacDataDir() + QStringLiteral("/places.json");
-}
-
-QString AACStorage::coreSymbolsPath() const
-{
-    return aacDataDir() + QStringLiteral("/core48.json");
-}
-#include <QJsonDocument>
-#include <QJsonArray>
-#include <QJsonObject>
-
-QVariantList AACStorage::loadJsonArray(const QString& path) const
-{
-    QFile f(path);
-    if (!f.open(QIODevice::ReadOnly))
-        return {};
-
-    const auto data = f.readAll();
-    f.close();
-
-    const auto doc = QJsonDocument::fromJson(data);
-    if (!doc.isArray())
-        return {};
-
-    return doc.array().toVariantList();
-}
-QVariantList AACStorage::numbers() const
-{
-    if (!m_numbersLoaded) {
-        m_numbersCache = loadJsonArray(numbersPath());
-        m_numbersLoaded = true;
+    {
+        const AACModeFlags m = mgr.modes();
+        QJsonObject o;
+        o["largeTargets"]     = m.largeTargets;
+        o["dwell"]            = m.dwell;
+        o["scanning"]         = m.scanning;
+        o["auditoryFeedback"] = m.auditoryFeedback;
+        o["hapticFeedback"]   = m.hapticFeedback;
+        o["deepWells"]        = m.deepWells;
+        o["oneHandLayout"]    = m.oneHandLayout;
+        o["ultraMinimal"]     = m.ultraMinimal;
+        o["predictiveStrip"]  = m.predictiveStrip;
+        root["modes"] = o;
     }
-    return m_numbersCache;
-}
 
-QVariantList AACStorage::places() const
-{
-    if (!m_placesLoaded) {
-        m_placesCache = loadJsonArray(placesPath());
-        m_placesLoaded = true;
+    {
+        const AACDwellConfig c = mgr.dwellConfig();
+        QJsonObject o;
+        o["dwellDurationMs"] = c.dwellDurationMs;
+        root["dwellConfig"] = o;
     }
-    return m_placesCache;
-}
 
-QVariantList AACStorage::coreSymbols() const
-{
-    if (!m_coreLoaded) {
-        m_coreSymbolsCache = loadJsonArray(coreSymbolsPath());
-        m_coreLoaded = true;
+    {
+        const AACScanningConfig c = mgr.scanningConfig();
+        QJsonObject o;
+        o["stepIntervalMs"] = c.stepIntervalMs;
+        root["scanningConfig"] = o;
     }
-    return m_coreSymbolsCache;
+
+    {
+        const AACLayoutConfig c = mgr.layoutConfig();
+        QJsonObject o;
+        o["oneHandRightSide"] = c.oneHandRightSide;
+        root["layoutConfig"] = o;
+    }
+
+    {
+        const AACSpeechConfig c = mgr.speechConfig();
+        QJsonObject o;
+        o["voiceName"]          = c.voiceName;
+        o["rate"]               = c.rate;
+        o["pitch"]              = c.pitch;
+        o["volume"]             = c.volume;
+        o["speakAsYouTypeMode"] = static_cast<int>(c.speakAsYouTypeMode);
+        o["echoOnSend"]         = c.echoOnSend;
+        o["highIntelligible"]   = c.highIntelligible;
+        o["lowIntensity"]       = c.lowIntensity;
+        root["speechConfig"] = o;
+    }
+
+    saveJson(root);
 }
