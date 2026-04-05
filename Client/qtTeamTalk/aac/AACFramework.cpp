@@ -57,6 +57,18 @@ void AACAccessibilityManager::persist()
         m_storage->persist(*this);
 }
 
+void AACAccessibilityManager::attachToAppLifecycle(QObject* app)
+{
+    if (!app)
+        return;
+
+    // Load persisted AAC state when the app lifecycle is attached
+    hydrate();
+
+    // Save AAC state when the app is about to quit
+    connect(app, SIGNAL(aboutToQuit()),
+            this, SLOT(persist()));
+}
 QString AACAccessibilityManager::activeCategory() const
 {
     return m_activeCategory;
