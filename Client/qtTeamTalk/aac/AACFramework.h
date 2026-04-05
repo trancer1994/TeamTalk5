@@ -18,6 +18,14 @@
 #include "core/AACProfile.h"
 #include "core/AACProfileConfigTable.h"
 
+class QWidget;
+class QLayout;
+class QEnterEvent;
+class QFocusEvent;
+class QMouseEvent;
+class QPaintEvent;
+class QTextToSpeech;
+
 class AACLayoutEngine;
 class AACInputController;
 class AACFeedbackEngine;
@@ -25,6 +33,7 @@ class AACSpeechEngine;
 class AACMessageHistory;
 class AACVocabularyManager;
 class AACPredictionEngine;
+class AACScreenAdapter;
 
 class AACAccessibilityManager : public QObject
 {
@@ -103,8 +112,6 @@ private:
 
     std::unique_ptr<AACStorage> m_storage;
 };
-
-class AACScreenAdapter;
 
 class AACLayoutEngine : public QObject
 {
