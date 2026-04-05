@@ -40,10 +40,11 @@ class AACAccessibilityManager : public QObject
     Q_OBJECT
 
 public:
-    explicit AACAccessibilityManager(QObject* parent = nullptr);
+    AACAccessibilityManager(QObject* parent = nullptr);
 
     void hydrate();
     void persist();
+    void attachToAppLifecycle(QObject* app);
 
     QString activeCategory() const;
     AACProfile profile() const;
@@ -118,7 +119,7 @@ class AACLayoutEngine : public QObject
     Q_OBJECT
 
 public:
-    explicit AACLayoutEngine(AACAccessibilityManager* mgr, QObject* parent = nullptr);
+    AACLayoutEngine(AACAccessibilityManager* mgr, QObject* parent = nullptr);
 
     void applyLayout(AACScreenAdapter* screen);
     void applyLargeTargets(AACScreenAdapter* screen);
@@ -138,7 +139,7 @@ class AACInputController : public QObject
     Q_OBJECT
 
 public:
-    explicit AACInputController(AACAccessibilityManager* mgr, QObject* parent = nullptr);
+    AACInputController(AACAccessibilityManager* mgr, QObject* parent = nullptr);
 
     void attachScreen(AACScreenAdapter* screen);
     void detachScreen(AACScreenAdapter* screen);
@@ -186,7 +187,7 @@ class AACFeedbackEngine : public QObject
     Q_OBJECT
 
 public:
-    explicit AACFeedbackEngine(AACAccessibilityManager* mgr, QObject* parent = nullptr);
+    AACFeedbackEngine(AACAccessibilityManager* mgr, QObject* parent = nullptr);
 
     void playClick();
     void playFocus();
@@ -214,7 +215,7 @@ class AACButton : public QPushButton
     Q_OBJECT
 
 public:
-    explicit AACButton(AACAccessibilityManager* aac, QWidget* parent = nullptr);
+    AACButton(AACAccessibilityManager* aac, QWidget* parent = nullptr);
 
     void setDeepWell(bool enabled);
     bool isDeepWell() const;
@@ -239,7 +240,7 @@ class AACSpeechEngine : public QObject
     Q_OBJECT
 
 public:
-    explicit AACSpeechEngine(AACAccessibilityManager* mgr, QObject* parent = nullptr);
+    AACSpeechEngine(AACAccessibilityManager* mgr, QObject* parent = nullptr);
 
     void speak(const QString& text);
     void stop();
@@ -276,7 +277,7 @@ class AACMessageHistory : public QObject
     Q_OBJECT
 
 public:
-    explicit AACMessageHistory(AACAccessibilityManager* mgr, QObject* parent = nullptr);
+    AACMessageHistory(AACAccessibilityManager* mgr, QObject* parent = nullptr);
 
     void addMessage(const QString& msg);
     QStringList history() const;
