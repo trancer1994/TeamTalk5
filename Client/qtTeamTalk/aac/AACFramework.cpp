@@ -15,13 +15,13 @@
 #include <QScreen>
 #include <QUrl>
 
-// -------------------------
-// AACAccessibilityManager
-// -------------------------
+#include "AACVocabularyManager.h"
 
 AACAccessibilityManager::AACAccessibilityManager(QObject* parent)
     : QObject(parent)
 {
+    m_storage = std::make_unique<AACStorage>();
+
     m_layoutEngine      = new AACLayoutEngine(this, this);
     m_inputController   = new AACInputController(this, this);
     m_feedbackEngine    = new AACFeedbackEngine(this, this);
@@ -40,9 +40,90 @@ AACAccessibilityManager::AACAccessibilityManager(QObject* parent)
     connect(m_history, &AACMessageHistory::historyChanged,
             this, &AACAccessibilityManager::historyChanged);
 
-    // ⭐ Keep speech engine in sync with config
     connect(this, &AACAccessibilityManager::speechConfigChanged,
             m_speechEngine, &AACSpeechEngine::applyConfig);
+}
+
+void AACAccessibilityManager::hydrate()
+{
+    if (m_storage)
+        m_storage->hydrate(*this);
+}
+
+void AACAccessibilityManager::persist()
+{
+    if (m_storage)
+        m_storage->persist(*this);
+}
+
+QString AACAccessibilityManager::activeCategory() const
+{
+    return m_activeCategory;
+}
+
+AACProfile AACAccessibilityManager::profile() const
+{
+    return m_profile;
+}
+
+AACModeFlags AACAccessibilityManager::modes() const
+{
+    return m_modes;
+}
+
+AACDwellConfig AACAccessibilityManager::dwellConfig() const
+{
+    return m_dwellConfig;
+}
+
+AACScanningConfig AACAccessibilityManager::scanningConfig() const
+{
+    return m_scanningConfig;
+}
+
+AACLayoutConfig AACAccessibilityManager::layoutConfig() const
+{
+    return m_layoutConfig;
+}
+
+AACSpeechConfig AACAccessibilityManager::speechConfig() const
+{
+    return m_speechConfig;
+}
+
+bool AACAccessibilityManager::predictionEnabled() const
+{
+    return m_predictionEnabled;
+}
+
+AACInputController* AACAccessibilityManager::inputController() const
+{
+    return m_inputController;
+}
+
+AACFeedbackEngine* AACAccessibilityManager::feedbackEngine() const
+{
+    return m_feedbackEngine;
+}
+
+AACSpeechEngine* AACAccessibilityManager::speechEngine() const
+{
+    return m_speechEngine;
+}
+
+AACMessageHistory* AACAccessibilityManager::history() const
+{
+    return m_history;
+}
+
+AACPredictionEngine* AACAccessibilityManager::predictionEngine() const
+{
+    return m_predictionEngine;
+}
+
+AACVocabularyManager* AACAccessibilityManager::vocabularyManager() const
+{
+    return m_vocabularyManager;
 }
 
 void AACAccessibilityManager::setProfile(AACProfile profile)
@@ -53,30 +134,15 @@ void AACAccessibilityManager::setProfile(AACProfile profile)
     m_profile = profile;
     const AACProfileConfig cfg = profileConfig(profile);
 
-    //
-    // 1. Apply symbol pack (vocabulary)
-    //
-    if (m_vocabularyManager) {
+    if (m_vocabularyManager)
         m_vocabularyManager->setSymbolPack(cfg.symbolPack);
-    }
 
-    //
-    // 2. Apply prediction mode
-    //
-    if (m_predictionEngine) {
+    if (m_predictionEngine)
         m_predictionEngine->applyProfile(cfg);
-    }
 
-    //
-    // 3. Apply layout profile
-    //
-    if (m_layoutEngine) {
+    if (m_layoutEngine)
         m_layoutEngine->applyProfile(cfg);
-    }
 
-    //
-    // 4. Apply scanning/dwell/one-hand/etc. if profile implies it
-    //
     AACModeFlags newModes = m_modes;
 
     if (cfg.gridId == "scanning_1xn") {
@@ -101,31 +167,24 @@ void AACAccessibilityManager::setProfile(AACProfile profile)
         newModes.dwell = false;
     }
     else {
-        // Default for typical symbol grids
         newModes.largeTargets = true;
         newModes.ultraMinimal = false;
     }
 
     setModes(newModes);
 
-    //
-    // 5. Apply dwell/scanning configs if needed
-    //
     if (newModes.dwell) {
         AACDwellConfig dwell;
-        dwell.dwellDurationMs = 900; // profile-specific tuning
+        dwell.dwellDurationMs = 900;
         setDwellConfig(dwell);
     }
 
     if (newModes.scanning) {
         AACScanningConfig scan;
-        scan.stepIntervalMs = 1100; // profile-specific tuning
+        scan.stepIntervalMs = 1100;
         setScanningConfig(scan);
     }
 
-    //
-    // 6. Notify UI and screens
-    //
     emit profileChanged(profile);
 }
 
@@ -150,18 +209,16 @@ void AACAccessibilityManager::setActiveCategory(const QString& category)
         m_predictionEngine->setCurrentCategory(category);
 }
 
-// Stage 5: vocabulary boosting
 void AACAccessibilityManager::boostPredictionVocabulary()
 {
     if (!m_vocabularyManager || !m_predictionEngine)
         return;
 
-    const QStringList words = m_vocabularyManager->allWords(); // hypothetical
+    const QStringList words = m_vocabularyManager->allWords();
     for (const QString& w : words)
         m_predictionEngine->boostToken(w);
 }
 
-// Stage 4: per-user persistence
 void AACAccessibilityManager::loadPredictionForUser(const QString& userId)
 {
     if (!m_predictionEngine)
@@ -220,10 +277,6 @@ void AACAccessibilityManager::setSpeechConfig(const AACSpeechConfig& cfg)
     m_speechConfig = cfg;
     emit speechConfigChanged(m_speechConfig);
 }
-
-// -------------------------
-// AACLayoutEngine
-// -------------------------
 
 AACLayoutEngine::AACLayoutEngine(AACAccessibilityManager* mgr, QObject* parent)
     : QObject(parent)
@@ -294,8 +347,6 @@ void AACLayoutEngine::applyUltraMinimal(AACScreenAdapter* screen)
 void AACLayoutEngine::applyPredictiveStrip(AACScreenAdapter* screen)
 {
     Q_UNUSED(screen);
-    // Placeholder: predictive strip widget can be added later and
-    // placed into screen->predictiveStripContainer().
 }
 
 void AACLayoutEngine::scaleInteractiveWidget(QWidget* w, bool enabled)
@@ -339,10 +390,6 @@ void AACLayoutEngine::scaleLayout(QLayout* lay, bool enabled)
         lay->setContentsMargins(8, 8, 8, 8);
     }
 }
-
-// -------------------------
-// AACInputController
-// -------------------------
 
 AACInputController::AACInputController(AACAccessibilityManager* mgr, QObject* parent)
     : QObject(parent)
@@ -501,10 +548,6 @@ void AACInputController::stopDwellOn(QWidget* w)
     stopDwell();
 }
 
-// -------------------------
-// AACFeedbackEngine
-// -------------------------
-
 AACFeedbackEngine::AACFeedbackEngine(AACAccessibilityManager* mgr, QObject* parent)
     : QObject(parent)
     , m_mgr(mgr)
@@ -553,7 +596,6 @@ void AACFeedbackEngine::doHaptic(int strength)
     Q_UNUSED(strength);
     if (!m_mgr->modes().hapticFeedback)
         return;
-    // Hook up platform-specific haptics here.
 }
 
 void AACFeedbackEngine::hapticSoft()
@@ -570,10 +612,6 @@ void AACFeedbackEngine::hapticError()
 {
     doHaptic(3);
 }
-
-// -------------------------
-// AACButton
-// -------------------------
 
 AACButton::AACButton(AACAccessibilityManager* aac, QWidget* parent)
     : QPushButton(parent)
@@ -656,43 +694,37 @@ void AACButton::paintEvent(QPaintEvent* e)
     p.drawArc(r, startAngle, spanAngle);
 }
 
-// -------------------------
-// AACSpeechEngine
-// -------------------------
-
 AACSpeechEngine::AACSpeechEngine(AACAccessibilityManager* mgr, QObject* parent)
     : QObject(parent)
     , m_mgr(mgr)
 {
     m_tts = new QTextToSpeech(this);
-connect(m_tts, &QTextToSpeech::stateChanged,
-        this, [this](QTextToSpeech::State st) {
-            if (st == QTextToSpeech::Speaking)
-                emit speechStarted(QString());
-            else if (st == QTextToSpeech::Ready)
-                emit speechFinished(QString());
-        });
+    connect(m_tts, &QTextToSpeech::stateChanged,
+            this, [this](QTextToSpeech::State st) {
+                if (st == QTextToSpeech::Speaking)
+                    emit speechStarted(QString());
+                else if (st == QTextToSpeech::Ready)
+                    emit speechFinished(QString());
+            });
 }
 
 void AACSpeechEngine::speak(const QString& text)
 {
-if (!m_tts)
-    return;
+    if (!m_tts)
+        return;
 
-const QString trimmed = text.trimmed();
-if (trimmed.isEmpty())
-    return;
+    const QString trimmed = text.trimmed();
+    if (trimmed.isEmpty())
+        return;
 
-m_tts->say(trimmed);
+    m_tts->say(trimmed);
 
-if (m_mgr)
-{
-    m_mgr->history()->addMessage(trimmed);
+    if (m_mgr) {
+        m_mgr->history()->addMessage(trimmed);
 
-    if (m_mgr->predictionEngine())
-        m_mgr->predictionEngine()->learnUtterance(trimmed);
-}
-
+        if (m_mgr->predictionEngine())
+            m_mgr->predictionEngine()->learnUtterance(trimmed);
+    }
 }
 
 void AACSpeechEngine::stop()
@@ -732,111 +764,114 @@ void AACSpeechEngine::setPitch(double pitch)
 
 void AACSpeechEngine::speakLetter(const QString& letter)
 {
-if (!m_tts)
-    return;
-if (m_sayMode != AACSpeechConfig::SpeakLetters)
-    return;
-if (letter.trimmed().isEmpty())
-    return;
-speak(letter);
+    if (!m_tts)
+        return;
+    if (m_sayMode != AACSpeechConfig::SpeakLetters)
+        return;
+    if (letter.trimmed().isEmpty())
+        return;
+    speak(letter);
 }
+
 void AACSpeechEngine::intelligibilityShaping(AACSpeechConfig& cfg)
 {
-if (!cfg.highIntelligible)
-    return;
+    if (!cfg.highIntelligible)
+        return;
 
-if (cfg.rate > 1.0)
-    cfg.rate = 1.0 + (cfg.rate - 1.0) * 0.5;
-if (cfg.pitch < 1.0)
-    cfg.pitch = cfg.pitch + (1.0 - cfg.pitch) * 0.3;
-if (cfg.volume < 0.7)
-    cfg.volume = 0.7;
+    if (cfg.rate > 1.0)
+        cfg.rate = 1.0 + (cfg.rate - 1.0) * 0.5;
+    if (cfg.pitch < 1.0)
+        cfg.pitch = cfg.pitch + (1.0 - cfg.pitch) * 0.3;
+    if (cfg.volume < 0.7)
+        cfg.volume = 0.7;
 }
 
 void AACSpeechEngine::lowIntensityShaping(AACSpeechConfig& cfg)
 {
-if (!cfg.lowIntensity)
-    return;
-if (cfg.volume > 0.6)
-    cfg.volume = 0.6;
-if (cfg.volume < 0.3)
-    cfg.volume = 0.3;
-cfg.pitch = cfg.pitch * 0.9;
-cfg.rate = cfg.rate * 0.9;
+    if (!cfg.lowIntensity)
+        return;
+    if (cfg.volume > 0.6)
+        cfg.volume = 0.6;
+    if (cfg.volume < 0.3)
+        cfg.volume = 0.3;
+    cfg.pitch = cfg.pitch * 0.9;
+    cfg.rate = cfg.rate * 0.9;
+}
+
+void AACSpeechEngine::applyPresetShaping(AACSpeechConfig& cfg)
+{
+    Q_UNUSED(cfg);
 }
 
 void AACSpeechEngine::applyConfig(const AACSpeechConfig& cfg)
 {
-if (!m_tts)
-    return;
+    if (!m_tts)
+        return;
 
-AACSpeechConfig effective = cfg;
-applyPresetShaping(effective);
-intelligibilityShaping(effective);
-lowIntensityShaping(effective);
-if (effective.rate < 0.1)
-    effective.rate = 0.1;
-if (effective.rate > 2.0)
-    effective.rate = 2.0;
+    AACSpeechConfig effective = cfg;
+    applyPresetShaping(effective);
+    intelligibilityShaping(effective);
+    lowIntensityShaping(effective);
+    if (effective.rate < 0.1)
+        effective.rate = 0.1;
+    if (effective.rate > 2.0)
+        effective.rate = 2.0;
 
-if (effective.pitch < 0.1)
-    effective.pitch = 0.1;
-if (effective.pitch > 2.0)
-    effective.pitch = 2.0;
+    if (effective.pitch < 0.1)
+        effective.pitch = 0.1;
+    if (effective.pitch > 2.0)
+        effective.pitch = 2.0;
 
-if (effective.volume < 0.0)
-    effective.volume = 0.0;
-if (effective.volume > 1.0)
-    effective.volume = 1.0;
-m_cfg = effective;
-if (!m_cfg.voiceName.isEmpty()) {
-    const auto voices = m_tts->availableVoices();
-    for (const QVoice& v : voices) {
-        if (v.name() == m_cfg.voiceName) {
-            m_tts->setVoice(v);
-            break;
+    if (effective.volume < 0.0)
+        effective.volume = 0.0;
+    if (effective.volume > 1.0)
+        effective.volume = 1.0;
+    m_cfg = effective;
+    if (!m_cfg.voiceName.isEmpty()) {
+        const auto voices = m_tts->availableVoices();
+        for (const QVoice& v : voices) {
+            if (v.name() == m_cfg.voiceName) {
+                m_tts->setVoice(v);
+                break;
+            }
         }
     }
+    m_tts->setRate(m_cfg.rate);
+    m_tts->setPitch(m_cfg.pitch);
+    m_tts->setVolume(m_cfg.volume);
+    m_sayMode = m_cfg.speakAsYouTypeMode;
 }
-m_tts->setRate(m_cfg.rate);
-m_tts->setPitch(m_cfg.pitch);
-m_tts->setVolume(m_cfg.volume);
-m_sayMode = m_cfg.speakAsYouTypeMode;
-}
+
 void AACSpeechEngine::speakWord(const QString& word)
 {
-if (!m_tts)
-    return;
-if (m_sayMode != AACSpeechConfig::SpeakWords)
-    return;
-if (word.trimmed().isEmpty())
-    return;
-speak(word);
-
+    if (!m_tts)
+        return;
+    if (m_sayMode != AACSpeechConfig::SpeakWords)
+        return;
+    if (word.trimmed().isEmpty())
+        return;
+    speak(word);
 }
 
 void AACSpeechEngine::speakPhrase(const QString& phrase)
 {
-if (!m_tts)
-    return;
-if (m_sayMode != AACSpeechConfig::SpeakPhrases)
-    return;
-if (phrase.trimmed().isEmpty())
-    return;
-speak(phrase);
+    if (!m_tts)
+        return;
+    if (m_sayMode != AACSpeechConfig::SpeakPhrases)
+        return;
+    if (phrase.trimmed().isEmpty())
+        return;
+    speak(phrase);
 }
 
 void AACSpeechEngine::echoOnSend(const QString& text)
 {
-if (!m_cfg.echoOnSend)
-    return;
-if (text.trimmed().isEmpty())
-    return;
-speak(text);
+    if (!m_cfg.echoOnSend)
+        return;
+    if (text.trimmed().isEmpty())
+        return;
+    speak(text);
 }
-// -------------------------
-// AACMessageHistory
-// -------------------------
 
 AACMessageHistory::AACMessageHistory(AACAccessibilityManager* mgr, QObject* parent)
     : QObject(parent)
