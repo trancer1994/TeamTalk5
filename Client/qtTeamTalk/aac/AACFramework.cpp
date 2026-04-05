@@ -14,6 +14,7 @@
 #include <QGuiApplication>
 #include <QScreen>
 #include <QUrl>
+#include <QSet>
 
 #include "AACVocabularyManager.h"
 
@@ -347,6 +348,7 @@ void AACLayoutEngine::applyUltraMinimal(AACScreenAdapter* screen)
 void AACLayoutEngine::applyPredictiveStrip(AACScreenAdapter* screen)
 {
     Q_UNUSED(screen);
+    // Placeholder for predictive strip widget placement.
 }
 
 void AACLayoutEngine::scaleInteractiveWidget(QWidget* w, bool enabled)
@@ -596,6 +598,7 @@ void AACFeedbackEngine::doHaptic(int strength)
     Q_UNUSED(strength);
     if (!m_mgr->modes().hapticFeedback)
         return;
+    // Platform-specific haptics placeholder.
 }
 
 void AACFeedbackEngine::hapticSoft()
@@ -801,6 +804,7 @@ void AACSpeechEngine::lowIntensityShaping(AACSpeechConfig& cfg)
 void AACSpeechEngine::applyPresetShaping(AACSpeechConfig& cfg)
 {
     Q_UNUSED(cfg);
+    // Placeholder for preset-based shaping.
 }
 
 void AACSpeechEngine::applyConfig(const AACSpeechConfig& cfg)
@@ -812,6 +816,7 @@ void AACSpeechEngine::applyConfig(const AACSpeechConfig& cfg)
     applyPresetShaping(effective);
     intelligibilityShaping(effective);
     lowIntensityShaping(effective);
+
     if (effective.rate < 0.1)
         effective.rate = 0.1;
     if (effective.rate > 2.0)
@@ -826,7 +831,9 @@ void AACSpeechEngine::applyConfig(const AACSpeechConfig& cfg)
         effective.volume = 0.0;
     if (effective.volume > 1.0)
         effective.volume = 1.0;
+
     m_cfg = effective;
+
     if (!m_cfg.voiceName.isEmpty()) {
         const auto voices = m_tts->availableVoices();
         for (const QVoice& v : voices) {
@@ -836,6 +843,7 @@ void AACSpeechEngine::applyConfig(const AACSpeechConfig& cfg)
             }
         }
     }
+
     m_tts->setRate(m_cfg.rate);
     m_tts->setPitch(m_cfg.pitch);
     m_tts->setVolume(m_cfg.volume);
