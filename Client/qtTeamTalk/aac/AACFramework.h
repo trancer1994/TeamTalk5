@@ -42,7 +42,10 @@ class AACAccessibilityManager : public QObject
 public:
     AACAccessibilityManager(QObject* parent = nullptr);
 
-    void hydrate();
+    QStringList categories() const;
+    QVector<AACVocabItem> words(const QString& category) const;
+
+void hydrate();
     void persist();
     void attachToAppLifecycle(QObject* app);
 
