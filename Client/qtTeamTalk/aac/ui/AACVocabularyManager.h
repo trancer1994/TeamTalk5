@@ -30,6 +30,9 @@ public:
     bool updateWord(int id, const QString& newLabel, const QString& newIconPath);
     bool deleteWord(int id);
 
+    // NEW: Provide all vocabulary words for prediction
+    QStringList allWords() const;
+
 signals:
     void categoriesChanged();
     void vocabularyChanged();
