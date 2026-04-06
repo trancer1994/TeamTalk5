@@ -43,6 +43,10 @@ AACAccessibilityManager::AACAccessibilityManager(QObject* parent)
 
     connect(this, &AACAccessibilityManager::speechConfigChanged,
             m_speechEngine, &AACSpeechEngine::applyConfig);
+
+    // NEW: keep prediction in sync with vocabulary
+    connect(m_vocabularyManager, &AACVocabularyManager::vocabularyChanged,
+            this, &AACAccessibilityManager::boostPredictionVocabulary);
 }
 
 void AACAccessibilityManager::hydrate()
@@ -68,6 +72,17 @@ void AACAccessibilityManager::attachToAppLifecycle(QObject* app)
     // Save AAC state when the app is about to quit
     connect(app, SIGNAL(aboutToQuit()),
             this, SLOT(persist()));
+}
+QStringList AACAccessibilityManager::categories() const
+{
+    return m_vocabularyManager ? m_vocabularyManager->categories()
+                               : QStringList();
+}
+
+QVector<AACVocabItem> AACAccessibilityManager::words(const QString& category) const
+{
+    return m_vocabularyManager ? m_vocabularyManager->wordsInCategory(category)
+                               : QVector<AACVocabItem>();
 }
 QString AACAccessibilityManager::activeCategory() const
 {
