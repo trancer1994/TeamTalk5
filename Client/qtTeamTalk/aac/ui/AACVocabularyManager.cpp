@@ -118,7 +118,6 @@ bool AACVocabularyManager::addWord(const QString& category, const QString& label
 {
     QSqlQuery q(*m_db);
 
-    // Find category ID
     q.prepare("SELECT id FROM categories WHERE name = :n;");
     q.bindValue(":n", category);
     q.exec();
@@ -128,7 +127,6 @@ bool AACVocabularyManager::addWord(const QString& category, const QString& label
 
     int catId = q.value(0).toInt();
 
-    // Insert word
     q.prepare("INSERT INTO words (categoryId, label, iconPath) VALUES (:c, :l, :i);");
     q.bindValue(":c", catId);
     q.bindValue(":l", label);
@@ -167,4 +165,17 @@ bool AACVocabularyManager::deleteWord(int id)
 
     emit vocabularyChanged();
     return true;
+}
+
+// NEW: Provide all vocabulary words for prediction
+QStringList AACVocabularyManager::allWords() const
+{
+    QStringList list;
+    QSqlQuery q(*m_db);
+
+    q.exec("SELECT label FROM words ORDER BY label ASC;");
+    while (q.next())
+        list << q.value(0).toString();
+
+    return list;
 }
