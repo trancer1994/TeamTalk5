@@ -2,13 +2,13 @@
 
 #include <QObject>
 #include <QList>
-#include <QTimer>
 #include <QDateTime>
+#include <QUdpSocket>
 
 #include "Client/qtTeamTalk/aac/models/serverinfo.h"
 #include "Client/qtTeamTalk/aac/storage/aacstorage.h"
 
-class ServerService; // forward declaration
+class ServerService;
 
 class AACServerDiscovery : public QObject
 {
@@ -26,12 +26,11 @@ public:
 
     State state() const { return m_state; }
 
-    // Actions
 public slots:
     void startDiscovery();
     void stopDiscovery();
-    void selectServer(const ServerInfo& info);
     void restart();
+    void selectServer(const ServerInfo& info);
 
 signals:
     void stateChanged(AACServerDiscovery::State newState);
@@ -40,14 +39,12 @@ signals:
     void resolved(const ServerInfo& info);
     void errorOccurred(const QString& message);
 
-private slots:
-    void onLANDiscoveryTick();
-
 private:
     void setState(State s);
     void emitCachedServers();
     void beginLANDiscovery();
     void endLANDiscovery();
+    void handleLANResponse(const QByteArray& datagram);
 
 private:
     State m_state = State::Idle;
@@ -56,5 +53,5 @@ private:
     AACStorage m_storage;
 
     QList<ServerInfo> m_seen;
-    QTimer m_lanTimer;
+    QUdpSocket* m_udp = nullptr;
 };
