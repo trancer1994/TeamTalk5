@@ -1,10 +1,9 @@
 #pragma once
 
 #include <QWidget>
-
-class QComboBox;
-class QPushButton;
-class QLabel;
+#include <QComboBox>
+#include <QPushButton>
+#include <QLabel>
 
 class AACSettingsWidget : public QWidget
 {

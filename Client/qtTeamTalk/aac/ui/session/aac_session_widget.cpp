@@ -1,9 +1,8 @@
-#include "aac_session_widget.h"
-
-#include <QListWidget>
-#include <QPushButton>
+#include "AACSessionWidget.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
+#include <QListWidget>
+#include <QPushButton>
 #include <QLabel>
 
 AACSessionWidget::AACSessionWidget(QWidget* parent)
@@ -16,24 +15,26 @@ void AACSessionWidget::setupUi()
 {
     m_userList = new QListWidget(this);
     m_userList->setSelectionMode(QAbstractItemView::NoSelection);
+    m_userList->setFocusPolicy(Qt::NoFocus);
 
     m_transmitButton = new QPushButton(tr("Transmit"), this);
-    m_leaveButton = new QPushButton(tr("Leave channel"), this);
+    m_leaveButton = new QPushButton(tr("Leave Channel"), this);
     m_settingsButton = new QPushButton(tr("Settings"), this);
+    m_aacButton = new QPushButton(tr("AAC Access"), this);
+    m_nicknameButton = new QPushButton(tr("Change Nickname"), this);
+    m_joinButton = new QPushButton(tr("Join Channel"), this);
     m_statusLabel = new QLabel(tr("Not transmitting"), this);
 
-    auto* buttons = new QHBoxLayout;
-    buttons->addWidget(m_transmitButton);
-    buttons->addWidget(m_settingsButton);
-    buttons->addStretch();
-    buttons->addWidget(m_leaveButton);
-
-    auto* layout = new QVBoxLayout;
+    auto* layout = new QVBoxLayout(this);
     layout->addWidget(m_statusLabel);
     layout->addWidget(m_userList);
-    layout->addLayout(buttons);
 
-    setLayout(layout);
+    layout->addWidget(m_transmitButton);
+    layout->addWidget(m_joinButton);
+    layout->addWidget(m_nicknameButton);
+    layout->addWidget(m_settingsButton);
+    layout->addWidget(m_aacButton);
+    layout->addWidget(m_leaveButton);
 
     connect(m_transmitButton, &QPushButton::clicked,
             this, &AACSessionWidget::onTransmitClicked);
@@ -41,6 +42,12 @@ void AACSessionWidget::setupUi()
             this, &AACSessionWidget::onLeaveClicked);
     connect(m_settingsButton, &QPushButton::clicked,
             this, &AACSessionWidget::onSettingsClicked);
+    connect(m_aacButton, &QPushButton::clicked,
+            this, &AACSessionWidget::onAACClicked);
+    connect(m_nicknameButton, &QPushButton::clicked,
+            this, &AACSessionWidget::onNicknameClicked);
+    connect(m_joinButton, &QPushButton::clicked,
+            this, &AACSessionWidget::onJoinChannelClicked);
 }
 
 void AACSessionWidget::setUsers(const QStringList& users)
@@ -52,7 +59,7 @@ void AACSessionWidget::setUsers(const QStringList& users)
 void AACSessionWidget::setTransmitActive(bool active)
 {
     m_transmitting = active;
-    m_transmitButton->setText(active ? tr("Stop transmitting")
+    m_transmitButton->setText(active ? tr("Stop Transmitting")
                                      : tr("Transmit"));
     m_statusLabel->setText(active ? tr("Transmitting")
                                   : tr("Not transmitting"));
@@ -72,4 +79,19 @@ void AACSessionWidget::onLeaveClicked()
 void AACSessionWidget::onSettingsClicked()
 {
     emit settingsRequested();
+}
+
+void AACSessionWidget::onAACClicked()
+{
+    emit aacSettingsRequested();
+}
+
+void AACSessionWidget::onNicknameClicked()
+{
+    emit changeNicknameRequested();
+}
+
+void AACSessionWidget::onJoinChannelClicked()
+{
+    emit joinChannelRequested();
 }

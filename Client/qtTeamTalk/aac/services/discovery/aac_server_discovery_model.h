@@ -1,19 +1,29 @@
 #pragma once
 
 #include <QAbstractListModel>
-#include "Client/qtTeamTalk/aac/models/serverinfo.h"
+#include <QString>
+#include <QVector>
+
+struct ServerInfo {
+    QString name;
+    QString host;
+    int port = 0;
+
+    QString key() const {
+        return host + ":" + QString::number(port);
+    }
+};
 
 class AACServerDiscoveryModel : public QAbstractListModel
 {
     Q_OBJECT
+
 public:
     enum Roles {
         NameRole = Qt::UserRole + 1,
         HostRole,
-        TcpPortRole,
-        UdpPortRole,
-        SourceRole,
-        SelectedRole
+        PortRole,
+        KeyRole
     };
 
     explicit AACServerDiscoveryModel(QObject* parent = nullptr);
@@ -22,16 +32,21 @@ public:
     QVariant data(const QModelIndex& index, int role) const override;
     QHash<int, QByteArray> roleNames() const override;
 
-public slots:
-    void addServer(const ServerInfo& info);
-    void clear();
-    void toggleSelection(int row);
-    ServerInfo selectedServer() const;
+    void setServers(const QVector<ServerInfo>& servers);
+
+    int rowForKey(const QString& key) const;
+    QString keyForRow(int row) const;
+
+    int highlightIndex() const { return m_highlightIndex; }
+    void setHighlight(int row);
+
+    void setSelected(int row);
 
 signals:
+    void highlightChanged(int row);
     void selectionChanged(const ServerInfo& info);
 
 private:
-    QList<ServerInfo> m_items;
-    int m_selected = -1;
+    QVector<ServerInfo> m_servers;
+    int m_highlightIndex = -1;
 };

@@ -1,10 +1,10 @@
 #pragma once
 
 #include <QWidget>
-
-class QListWidget;
-class QPushButton;
-class QLabel;
+#include <QListWidget>
+#include <QPushButton>
+#include <QLabel>
+#include <QElapsedTimer>
 
 class AACChannelListWidget : public QWidget
 {
@@ -21,13 +21,20 @@ signals:
 
 private slots:
     void onJoinClicked();
+    void onHighlightChanged();
+    void onItemActivated(QListWidgetItem* item);
 
 private:
     void setupUi();
+    void ensureHighlightVisible();
+    bool acceptInput();
 
 private:
     QListWidget* m_list = nullptr;
     QPushButton* m_joinButton = nullptr;
     QPushButton* m_backButton = nullptr;
     QLabel* m_statusLabel = nullptr;
+
+    bool m_transitioning = false;
+    QElapsedTimer m_debounce;
 };

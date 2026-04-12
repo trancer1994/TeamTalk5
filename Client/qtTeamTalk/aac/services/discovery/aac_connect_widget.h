@@ -1,13 +1,11 @@
 #pragma once
 
 #include <QWidget>
-#include <QPointer>
-
-class QLineEdit;
-class QPushButton;
-class QLabel;
-
-struct ServerInfo;
+#include <QLineEdit>
+#include <QSpinBox>
+#include <QPushButton>
+#include <QVBoxLayout>
+#include "serverinfo.h"
 
 class AACConnectWidget : public QWidget
 {
@@ -15,31 +13,32 @@ class AACConnectWidget : public QWidget
 public:
     explicit AACConnectWidget(QWidget* parent = nullptr);
 
-    void setServerInfo(const ServerInfo& info);
+public slots:
+    void loadServerInfo(const ServerInfo& info);
 
 signals:
     void connectRequested(const ServerInfo& info);
-    void backRequested();
+    void cancelled();
 
 private slots:
-    void onConnectClicked();
+    void onConnectPressed();
+    void onBackPressed();
 
 private:
-    void setupUi();
-    ServerInfo collectInfo() const;
+    void applyDirectFill(const ServerInfo& info);
+    void clearFocusSafely();
 
 private:
     QLineEdit* m_hostEdit = nullptr;
-    QLineEdit* m_tcpEdit = nullptr;
-    QLineEdit* m_udpEdit = nullptr;
+    QSpinBox*  m_portEdit = nullptr;
     QLineEdit* m_userEdit = nullptr;
     QLineEdit* m_passEdit = nullptr;
     QLineEdit* m_nickEdit = nullptr;
-    QLineEdit* m_statusEdit = nullptr;
     QLineEdit* m_channelEdit = nullptr;
-    QLineEdit* m_chanPassEdit = nullptr;
+    QLineEdit* m_channelPassEdit = nullptr;
 
     QPushButton* m_connectButton = nullptr;
     QPushButton* m_backButton = nullptr;
-    QLabel* m_statusLabel = nullptr;
+
+    bool m_ready = false;
 };

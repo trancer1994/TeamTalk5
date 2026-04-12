@@ -1,57 +1,47 @@
 #pragma once
 
 #include <QObject>
-#include <QList>
+#include <QVector>
+#include <QString>
+#include <QTimer>
 #include <QDateTime>
-#include <QUdpSocket>
-
-#include "Client/qtTeamTalk/aac/models/serverinfo.h"
-#include "Client/qtTeamTalk/aac/storage/aacstorage.h"
-
-class ServerService;
+#include "aac_server_discovery_model.h"
 
 class AACServerDiscovery : public QObject
 {
     Q_OBJECT
+
 public:
-    enum class State {
-        Idle,
-        Discovering,
-        Resolved
-    };
-    Q_ENUM(State)
+    explicit AACServerDiscovery(QObject* parent = nullptr);
 
-    explicit AACServerDiscovery(ServerService* service,
-                                QObject* parent = nullptr);
+    AACServerDiscoveryModel* model() { return &m_model; }
 
-    State state() const { return m_state; }
-
-public slots:
     void startDiscovery();
     void stopDiscovery();
-    void restart();
-    void selectServer(const ServerInfo& info);
+
+    bool isScanning() const { return m_isScanning; }
+    QDateTime lastUpdated() const { return m_lastUpdated; }
+
+    int discoveryIntervalMs() const { return m_discoveryIntervalMs; }
+    void setDiscoveryIntervalMs(int ms);
 
 signals:
-    void stateChanged(AACServerDiscovery::State newState);
-    void serverFound(const ServerInfo& info);
-    void serverListCleared();
-    void resolved(const ServerInfo& info);
-    void errorOccurred(const QString& message);
+    void serversUpdated(const QVector<ServerInfo>& servers);
+    void isScanningChanged(bool scanning);
+    void lastUpdatedChanged(const QDateTime& dt);
+
+private slots:
+    void performDiscovery();
 
 private:
-    void setState(State s);
-    void emitCachedServers();
-    void beginLANDiscovery();
-    void endLANDiscovery();
-    void handleLANResponse(const QByteArray& datagram);
+    void setScanning(bool scanning);
+    void updateLastUpdated();
 
-private:
-    State m_state = State::Idle;
+    AACServerDiscoveryModel m_model;
+    QTimer m_timer;
 
-    ServerService* m_service = nullptr;
-    AACStorage m_storage;
+    bool m_isScanning = false;
+    QDateTime m_lastUpdated;
 
-    QList<ServerInfo> m_seen;
-    QUdpSocket* m_udp = nullptr;
+    int m_discoveryIntervalMs = 3000;
 };

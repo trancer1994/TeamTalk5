@@ -1,158 +1,73 @@
 #include "aac_server_discovery.h"
-#include "serverservice.h"
+#include <QHostInfo>
 
-#include <QDomDocument>
-#include <QHostAddress>
-#include <QNetworkInterface>
-
-AACServerDiscovery::AACServerDiscovery(ServerService* service,
-                                       QObject* parent)
+AACServerDiscovery::AACServerDiscovery(QObject* parent)
     : QObject(parent)
-    , m_service(service)
 {
+    m_timer.setInterval(m_discoveryIntervalMs);
+    connect(&m_timer, &QTimer::timeout, this, &AACServerDiscovery::performDiscovery);
 }
 
-void AACServerDiscovery::setState(State s)
+void AACServerDiscovery::setDiscoveryIntervalMs(int ms)
 {
-    if (m_state == s)
+    if (ms <= 0)
         return;
 
-    m_state = s;
-    emit stateChanged(s);
+    m_discoveryIntervalMs = ms;
+    m_timer.setInterval(m_discoveryIntervalMs);
 }
 
 void AACServerDiscovery::startDiscovery()
 {
-    if (!m_service) {
-        emit errorOccurred("ServerService unavailable");
+    if (m_isScanning)
         return;
-    }
 
-    m_seen.clear();
-    emit serverListCleared();
-
-    setState(State::Discovering);
-
-    // 1) Cached servers first (instant feedback)
-    emitCachedServers();
-
-    // 2) Public servers (async)
-    connect(m_service, &ServerService::publicServersUpdated,
-            this, [this](const QList<ServerInfo>& list) {
-        for (const auto& s : list) {
-            if (!m_seen.contains(s)) {
-                m_seen.append(s);
-                emit serverFound(s);
-            }
-        }
-    });
-
-    m_service->fetchPublicServers(true);
-
-    // 3) LAN discovery
-    beginLANDiscovery();
+    setScanning(true);
+    m_timer.start();
+    performDiscovery();
 }
 
 void AACServerDiscovery::stopDiscovery()
 {
-    endLANDiscovery();
-    setState(State::Idle);
-}
-
-void AACServerDiscovery::restart()
-{
-    stopDiscovery();
-    startDiscovery();
-}
-
-void AACServerDiscovery::selectServer(const ServerInfo& info)
-{
-    if (m_state != State::Discovering)
+    if (!m_isScanning)
         return;
 
-    setState(State::Resolved);
-    emit resolved(info);
+    m_timer.stop();
+    setScanning(false);
 }
 
-void AACServerDiscovery::emitCachedServers()
+void AACServerDiscovery::setScanning(bool scanning)
 {
-    QList<ServerInfo> cached = m_storage.loadLatestHosts();
-    for (auto s : cached) {
-        s.source = ServerSource::Cached;
-        s.lastSeen = QDateTime::currentDateTimeUtc();
-        s.updateId();
-
-        m_seen.append(s);
-        emit serverFound(s);
-    }
-}
-
-void AACServerDiscovery::beginLANDiscovery()
-{
-    if (!m_udp) {
-        m_udp = new QUdpSocket(this);
-
-        connect(m_udp, &QUdpSocket::readyRead,
-                this, [this] {
-            while (m_udp->hasPendingDatagrams()) {
-                QByteArray datagram;
-                datagram.resize(int(m_udp->pendingDatagramSize()));
-                m_udp->readDatagram(datagram.data(), datagram.size());
-                handleLANResponse(datagram);
-            }
-        });
-    }
-
-    // Broadcast "TTLAN" to all interfaces
-    QByteArray request("TTLAN");
-
-    for (const QNetworkInterface& iface : QNetworkInterface::allInterfaces()) {
-        if (!(iface.flags() & QNetworkInterface::IsUp))
-            continue;
-        if (!(iface.flags() & QNetworkInterface::IsRunning))
-            continue;
-        if (iface.flags() & QNetworkInterface::IsLoopBack)
-            continue;
-
-        for (const QNetworkAddressEntry& entry : iface.addressEntries()) {
-            QHostAddress broadcast = entry.broadcast();
-            if (!broadcast.isNull()) {
-                m_udp->writeDatagram(request, broadcast, 10333);
-            }
-        }
-    }
-}
-
-void AACServerDiscovery::endLANDiscovery()
-{
-    if (m_udp) {
-        m_udp->close();
-        m_udp->deleteLater();
-        m_udp = nullptr;
-    }
-}
-
-void AACServerDiscovery::handleLANResponse(const QByteArray& datagram)
-{
-    QDomDocument doc;
-    if (!doc.setContent(datagram))
+    if (m_isScanning == scanning)
         return;
 
-    QDomElement root = doc.documentElement();
-    QDomElement hostElem = root.firstChildElement("host");
-    if (hostElem.isNull())
-        return;
+    m_isScanning = scanning;
+    emit isScanningChanged(m_isScanning);
+}
 
-    ServerInfo info;
-    if (!m_service->parseServerElement(hostElem, info))
-        return;
+void AACServerDiscovery::updateLastUpdated()
+{
+    m_lastUpdated = QDateTime::currentDateTime();
+    emit lastUpdatedChanged(m_lastUpdated);
+}
 
-    info.source = ServerSource::LAN;
-    info.lastSeen = QDateTime::currentDateTimeUtc();
-    info.updateId();
+void AACServerDiscovery::performDiscovery()
+{
+    QVector<ServerInfo> servers;
 
-    if (!m_seen.contains(info)) {
-        m_seen.append(info);
-        emit serverFound(info);
-    }
+    ServerInfo s1;
+    s1.name = "Local Server";
+    s1.host = "127.0.0.1";
+    s1.port = 10333;
+    servers.append(s1);
+
+    ServerInfo s2;
+    s2.name = "Demo Server";
+    s2.host = "192.168.1.50";
+    s2.port = 10333;
+    servers.append(s2);
+
+    m_model.setServers(servers);
+    updateLastUpdated();
+    emit serversUpdated(servers);
 }

@@ -1,97 +1,102 @@
 #include "aac_connect_widget.h"
 
-#include <QLineEdit>
-#include <QPushButton>
-#include <QFormLayout>
-#include <QVBoxLayout>
-#include <QHBoxLayout>
-#include <QLabel>
-
-#include "Client/qtTeamTalk/aac/models/serverinfo.h"
-
 AACConnectWidget::AACConnectWidget(QWidget* parent)
     : QWidget(parent)
 {
-    setupUi();
-}
+    QVBoxLayout* layout = new QVBoxLayout(this);
+    layout->setContentsMargins(20, 20, 20, 20);
 
-void AACConnectWidget::setupUi()
-{
     m_hostEdit = new QLineEdit(this);
-    m_tcpEdit = new QLineEdit(this);
-    m_udpEdit = new QLineEdit(this);
+    m_portEdit = new QSpinBox(this);
+    m_portEdit->setRange(1, 65535);
+
     m_userEdit = new QLineEdit(this);
     m_passEdit = new QLineEdit(this);
     m_passEdit->setEchoMode(QLineEdit::Password);
+
     m_nickEdit = new QLineEdit(this);
-    m_statusEdit = new QLineEdit(this);
     m_channelEdit = new QLineEdit(this);
-    m_chanPassEdit = new QLineEdit(this);
-    m_chanPassEdit->setEchoMode(QLineEdit::Password);
+    m_channelPassEdit = new QLineEdit(this);
+    m_channelPassEdit->setEchoMode(QLineEdit::Password);
 
-    m_connectButton = new QPushButton(tr("Connect"), this);
-    m_backButton = new QPushButton(tr("Back"), this);
-    m_statusLabel = new QLabel(tr("Not connected"), this);
+    m_connectButton = new QPushButton("Connect", this);
+    m_backButton = new QPushButton("Back", this);
 
-    auto* form = new QFormLayout;
-    form->addRow(tr("Host"), m_hostEdit);
-    form->addRow(tr("TCP port"), m_tcpEdit);
-    form->addRow(tr("UDP port"), m_udpEdit);
-    form->addRow(tr("Username"), m_userEdit);
-    form->addRow(tr("Password"), m_passEdit);
-    form->addRow(tr("Nickname"), m_nickEdit);
-    form->addRow(tr("Status"), m_statusEdit);
-    form->addRow(tr("Channel"), m_channelEdit);
-    form->addRow(tr("Channel password"), m_chanPassEdit);
-
-    auto* buttons = new QHBoxLayout;
-    buttons->addWidget(m_connectButton);
-    buttons->addStretch();
-    buttons->addWidget(m_backButton);
-
-    auto* layout = new QVBoxLayout;
-    layout->addWidget(m_statusLabel);
-    layout->addLayout(form);
-    layout->addLayout(buttons);
-
-    setLayout(layout);
+    layout->addWidget(m_hostEdit);
+    layout->addWidget(m_portEdit);
+    layout->addWidget(m_userEdit);
+    layout->addWidget(m_passEdit);
+    layout->addWidget(m_nickEdit);
+    layout->addWidget(m_channelEdit);
+    layout->addWidget(m_channelPassEdit);
+    layout->addWidget(m_connectButton);
+    layout->addWidget(m_backButton);
 
     connect(m_connectButton, &QPushButton::clicked,
-            this, &AACConnectWidget::onConnectClicked);
+            this, &AACConnectWidget::onConnectPressed);
+
     connect(m_backButton, &QPushButton::clicked,
-            this, &AACConnectWidget::backRequested);
+            this, &AACConnectWidget::onBackPressed);
 }
 
-void AACConnectWidget::setServerInfo(const ServerInfo& info)
+void AACConnectWidget::loadServerInfo(const ServerInfo& info)
+{
+    applyDirectFill(info);
+    clearFocusSafely();
+    m_ready = true;
+}
+
+void AACConnectWidget::applyDirectFill(const ServerInfo& info)
 {
     m_hostEdit->setText(info.host);
-    m_tcpEdit->setText(QString::number(info.tcpPort));
-    m_udpEdit->setText(QString::number(info.udpPort));
-    m_userEdit->setText(info.username);
-    m_passEdit->setText(info.password);
-    m_nickEdit->setText(info.nickname);
-    m_statusEdit->setText(info.statusMessage);
-    m_channelEdit->setText(info.channel);
-    m_chanPassEdit->setText(info.channelPassword);
+    m_portEdit->setValue(info.port);
+
+    if (!info.username.isEmpty())
+        m_userEdit->setText(info.username);
+
+    if (!info.password.isEmpty())
+        m_passEdit->setText(info.password);
+
+    if (!info.nickname.isEmpty())
+        m_nickEdit->setText(info.nickname);
+
+    if (!info.channel.isEmpty())
+        m_channelEdit->setText(info.channel);
+
+    if (!info.channelPassword.isEmpty())
+        m_channelPassEdit->setText(info.channelPassword);
 }
 
-ServerInfo AACConnectWidget::collectInfo() const
+void AACConnectWidget::clearFocusSafely()
 {
+    setFocus(Qt::NoFocusReason);
+    m_hostEdit->clearFocus();
+    m_portEdit->clearFocus();
+    m_userEdit->clearFocus();
+    m_passEdit->clearFocus();
+    m_nickEdit->clearFocus();
+    m_channelEdit->clearFocus();
+    m_channelPassEdit->clearFocus();
+}
+
+void AACConnectWidget::onConnectPressed()
+{
+    if (!m_ready)
+        return;
+
     ServerInfo info;
     info.host = m_hostEdit->text();
-    info.tcpPort = m_tcpEdit->text().toInt();
-    info.udpPort = m_udpEdit->text().toInt();
+    info.port = m_portEdit->value();
     info.username = m_userEdit->text();
     info.password = m_passEdit->text();
     info.nickname = m_nickEdit->text();
-    info.statusMessage = m_statusEdit->text();
     info.channel = m_channelEdit->text();
-    info.channelPassword = m_chanPassEdit->text();
-    return info;
+    info.channelPassword = m_channelPassEdit->text();
+
+    emit connectRequested(info);
 }
 
-void AACConnectWidget::onConnectClicked()
+void AACConnectWidget::onBackPressed()
 {
-    ServerInfo info = collectInfo();
-    emit connectRequested(info);
+    emit cancelled();
 }

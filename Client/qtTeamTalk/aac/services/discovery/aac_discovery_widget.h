@@ -1,51 +1,51 @@
 #pragma once
 
 #include <QWidget>
+#include <QTimer>
 #include <QPointer>
+#include "aac_server_discovery.h"
 
-class QListView;
-class QPushButton;
-class QLabel;
-
-class ServerService;
-class AACServerDiscovery;
-class AACServerDiscoveryModel;
-struct ServerInfo;
+class QListWidget;
+class QListWidgetItem;
 
 class AACDiscoveryWidget : public QWidget
 {
     Q_OBJECT
+
 public:
-    explicit AACDiscoveryWidget(ServerService* service,
-                                QWidget* parent = nullptr);
+    explicit AACDiscoveryWidget(QWidget* parent = nullptr);
+
+    int dwellTimeMs() const { return m_dwellTimer.interval(); }
+    void setDwellTimeMs(int ms);
 
 signals:
     void serverChosen(const ServerInfo& info);
-    void backRequested();
+
+protected:
+    void showEvent(QShowEvent* event) override;
+    void hideEvent(QHideEvent* event) override;
 
 private slots:
-    void onStartDiscovery();
-    void onRefresh();
-    void onSelect();
+    void onServersUpdated(const QVector<ServerInfo>& servers);
+    void onHighlightChanged(int row);
     void onSelectionChanged(const ServerInfo& info);
-    void onStateChanged(int state);
-    void onError(const QString& message);
+
+    void onItemEntered(QListWidgetItem* item);
+    void commitDwell();
 
 private:
-    void setupUi();
-    void wireSignals();
+    void rebuildList(const QVector<ServerInfo>& servers);
+    void applyHighlight(int row);
+    void cancelDwell();
 
-private:
-    QPointer<ServerService> m_service;
-    AACServerDiscovery* m_discovery = nullptr;
-    AACServerDiscoveryModel* m_model = nullptr;
+    void restoreHighlightIfPossible(const QVector<ServerInfo>& servers);
 
-    QListView* m_listView = nullptr;
-    QPushButton* m_startButton = nullptr;
-    QPushButton* m_refreshButton = nullptr;
-    QPushButton* m_selectButton = nullptr;
-    QPushButton* m_backButton = nullptr;
-    QLabel* m_statusLabel = nullptr;
+    AACServerDiscovery m_discovery;
+    QListWidget* m_list = nullptr;
 
-    ServerInfo* m_currentSelection = nullptr;
+    QTimer m_dwellTimer;
+    int m_pendingRow = -1;
+
+    QString m_lastHighlightKey;
+    bool m_committingSelection = false;
 };

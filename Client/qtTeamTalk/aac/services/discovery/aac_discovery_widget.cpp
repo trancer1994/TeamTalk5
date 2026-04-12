@@ -1,130 +1,140 @@
 #include "aac_discovery_widget.h"
-
-#include <QListView>
-#include <QPushButton>
+#include <QListWidget>
+#include <QListWidgetItem>
 #include <QVBoxLayout>
-#include <QHBoxLayout>
-#include <QLabel>
+#include <QShowEvent>
+#include <QHideEvent>
 
-#include "Client/qtTeamTalk/aac/services/serverservice.h"
-#include "Client/qtTeamTalk/aac/services/aac_server_discovery.h"
-#include "Client/qtTeamTalk/aac/services/aac_server_discovery_model.h"
-#include "Client/qtTeamTalk/aac/models/serverinfo.h"
+static const int kDefaultDwellTimeMs = 1000;
 
-AACDiscoveryWidget::AACDiscoveryWidget(ServerService* service,
-                                       QWidget* parent)
+AACDiscoveryWidget::AACDiscoveryWidget(QWidget* parent)
     : QWidget(parent)
-    , m_service(service)
 {
-    m_discovery = new AACServerDiscovery(m_service, this);
-    m_model = new AACServerDiscoveryModel(this);
+    QVBoxLayout* layout = new QVBoxLayout(this);
+    m_list = new QListWidget(this);
+    m_list->setSelectionMode(QAbstractItemView::NoSelection);
+    m_list->setMouseTracking(true);
 
-    setupUi();
-    wireSignals();
-}
-
-void AACDiscoveryWidget::setupUi()
-{
-    m_listView = new QListView(this);
-    m_listView->setModel(m_model);
-    m_listView->setSelectionMode(QAbstractItemView::SingleSelection);
-
-    m_startButton = new QPushButton(tr("Start discovery"), this);
-    m_refreshButton = new QPushButton(tr("Refresh"), this);
-    m_selectButton = new QPushButton(tr("Select"), this);
-    m_backButton = new QPushButton(tr("Back"), this);
-    m_statusLabel = new QLabel(tr("Idle"), this);
-
-    auto* buttonRow = new QHBoxLayout;
-    buttonRow->addWidget(m_startButton);
-    buttonRow->addWidget(m_refreshButton);
-    buttonRow->addWidget(m_selectButton);
-    buttonRow->addStretch();
-    buttonRow->addWidget(m_backButton);
-
-    auto* layout = new QVBoxLayout;
-    layout->addWidget(m_statusLabel);
-    layout->addWidget(m_listView);
-    layout->addLayout(buttonRow);
-
+    layout->addWidget(m_list);
     setLayout(layout);
-}
 
-void AACDiscoveryWidget::wireSignals()
-{
-    connect(m_startButton, &QPushButton::clicked,
-            this, &AACDiscoveryWidget::onStartDiscovery);
-    connect(m_refreshButton, &QPushButton::clicked,
-            this, &AACDiscoveryWidget::onRefresh);
-    connect(m_selectButton, &QPushButton::clicked,
-            this, &AACDiscoveryWidget::onSelect);
-    connect(m_backButton, &QPushButton::clicked,
-            this, &AACDiscoveryWidget::backRequested);
+    connect(&m_discovery, &AACServerDiscovery::serversUpdated,
+            this, &AACDiscoveryWidget::onServersUpdated);
 
-    connect(m_discovery, &AACServerDiscovery::stateChanged,
-            this, &AACDiscoveryWidget::onStateChanged);
-    connect(m_discovery, &AACServerDiscovery::serverListCleared,
-            m_model, &AACServerDiscoveryModel::clear);
-    connect(m_discovery, &AACServerDiscovery::serverFound,
-            m_model, &AACServerDiscoveryModel::addServer);
-    connect(m_discovery, &AACServerDiscovery::errorOccurred,
-            this, &AACDiscoveryWidget::onError);
+    connect(m_discovery.model(), &AACServerDiscoveryModel::highlightChanged,
+            this, &AACDiscoveryWidget::onHighlightChanged);
 
-    connect(m_model, &AACServerDiscoveryModel::selectionChanged,
+    connect(m_discovery.model(), &AACServerDiscoveryModel::selectionChanged,
             this, &AACDiscoveryWidget::onSelectionChanged);
 
-    connect(m_listView, &QListView::clicked,
-            this, [this](const QModelIndex& idx) {
-        m_model->toggleSelection(idx.row());
-    });
+    connect(m_list, &QListWidget::itemEntered,
+            this, &AACDiscoveryWidget::onItemEntered);
+
+    m_dwellTimer.setInterval(kDefaultDwellTimeMs);
+    m_dwellTimer.setSingleShot(true);
+    connect(&m_dwellTimer, &QTimer::timeout,
+            this, &AACDiscoveryWidget::commitDwell);
 }
 
-void AACDiscoveryWidget::onStartDiscovery()
+void AACDiscoveryWidget::setDwellTimeMs(int ms)
 {
-    m_model->clear();
-    m_discovery->startDiscovery();
+    if (ms <= 0)
+        return;
+    m_dwellTimer.setInterval(ms);
 }
 
-void AACDiscoveryWidget::onRefresh()
+void AACDiscoveryWidget::showEvent(QShowEvent* event)
 {
-    m_discovery->restart();
+    QWidget::showEvent(event);
+    m_discovery.startDiscovery();
 }
 
-void AACDiscoveryWidget::onSelect()
+void AACDiscoveryWidget::hideEvent(QHideEvent* event)
 {
-    ServerInfo info = m_model->selectedServer();
-    if (!info.isValid())
+    QWidget::hideEvent(event);
+    m_discovery.stopDiscovery();
+    cancelDwell();
+}
+
+void AACDiscoveryWidget::onServersUpdated(const QVector<ServerInfo>& servers)
+{
+    restoreHighlightIfPossible(servers);
+    rebuildList(servers);
+}
+
+void AACDiscoveryWidget::restoreHighlightIfPossible(const QVector<ServerInfo>& servers)
+{
+    Q_UNUSED(servers);
+
+    if (m_lastHighlightKey.isEmpty())
         return;
 
-    m_discovery->selectServer(info);
-    emit serverChosen(info);
+    int row = m_discovery.model()->rowForKey(m_lastHighlightKey);
+    if (row >= 0)
+        m_discovery.model()->setHighlight(row);
+}
+
+void AACDiscoveryWidget::rebuildList(const QVector<ServerInfo>& servers)
+{
+    m_list->clear();
+
+    for (const ServerInfo& s : servers) {
+        QListWidgetItem* item = new QListWidgetItem(
+            QString("%1 (%2:%3)").arg(s.name).arg(s.host).arg(s.port));
+        m_list->addItem(item);
+    }
+
+    int row = m_discovery.model()->highlightIndex();
+    applyHighlight(row);
+}
+
+void AACDiscoveryWidget::onHighlightChanged(int row)
+{
+    m_lastHighlightKey = m_discovery.model()->keyForRow(row);
+    applyHighlight(row);
+}
+
+void AACDiscoveryWidget::applyHighlight(int row)
+{
+    for (int i = 0; i < m_list->count(); ++i) {
+        QListWidgetItem* item = m_list->item(i);
+        item->setSelected(i == row);
+    }
 }
 
 void AACDiscoveryWidget::onSelectionChanged(const ServerInfo& info)
 {
-    // Optional: update status label
-    m_statusLabel->setText(tr("Selected: %1 (%2)")
-                           .arg(info.name.isEmpty() ? info.host : info.name)
-                           .arg(info.host));
+    emit serverChosen(info);
 }
 
-void AACDiscoveryWidget::onStateChanged(int state)
+void AACDiscoveryWidget::onItemEntered(QListWidgetItem* item)
 {
-    using State = AACServerDiscovery::State;
-    switch (static_cast<State>(state)) {
-    case State::Idle:
-        m_statusLabel->setText(tr("Idle"));
-        break;
-    case State::Discovering:
-        m_statusLabel->setText(tr("Discovering servers..."));
-        break;
-    case State::Resolved:
-        m_statusLabel->setText(tr("Server resolved"));
-        break;
-    }
+    if (m_committingSelection)
+        return;
+
+    int row = m_list->row(item);
+    m_discovery.model()->setHighlight(row);
+
+    m_pendingRow = row;
+    m_dwellTimer.start();
 }
 
-void AACDiscoveryWidget::onError(const QString& message)
+void AACDiscoveryWidget::cancelDwell()
 {
-    m_statusLabel->setText(tr("Error: %1").arg(message));
+    m_dwellTimer.stop();
+    m_pendingRow = -1;
+}
+
+void AACDiscoveryWidget::commitDwell()
+{
+    if (m_pendingRow < 0)
+        return;
+
+    m_committingSelection = true;
+    m_discovery.stopDiscovery();
+
+    m_discovery.model()->setSelected(m_pendingRow);
+
+    m_pendingRow = -1;
+    m_committingSelection = false;
 }

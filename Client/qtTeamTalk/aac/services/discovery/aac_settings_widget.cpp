@@ -1,11 +1,7 @@
 #include "aac_settings_widget.h"
-
-#include <QComboBox>
-#include <QPushButton>
 #include <QFormLayout>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
-#include <QLabel>
 
 AACSettingsWidget::AACSettingsWidget(QWidget* parent)
     : QWidget(parent)
@@ -16,6 +12,8 @@ AACSettingsWidget::AACSettingsWidget(QWidget* parent)
 void AACSettingsWidget::setupUi()
 {
     m_transmitModeCombo = new QComboBox(this);
+    m_transmitModeCombo->setFocusPolicy(Qt::NoFocus);
+
     m_transmitModeCombo->addItem(tr("Tap to toggle"));
     m_transmitModeCombo->addItem(tr("Hold to talk"));
     m_transmitModeCombo->addItem(tr("VOX"));

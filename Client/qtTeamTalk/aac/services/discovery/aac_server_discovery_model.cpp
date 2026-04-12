@@ -5,76 +5,82 @@ AACServerDiscoveryModel::AACServerDiscoveryModel(QObject* parent)
 {
 }
 
-int AACServerDiscoveryModel::rowCount(const QModelIndex&) const
+int AACServerDiscoveryModel::rowCount(const QModelIndex& parent) const
 {
-    return m_items.size();
+    if (parent.isValid())
+        return 0;
+    return m_servers.size();
 }
 
 QVariant AACServerDiscoveryModel::data(const QModelIndex& index, int role) const
 {
-    if (!index.isValid() || index.row() >= m_items.size())
-        return {};
+    if (!index.isValid() || index.row() < 0 || index.row() >= m_servers.size())
+        return QVariant();
 
-    const auto& s = m_items[index.row()];
+    const ServerInfo& info = m_servers.at(index.row());
 
     switch (role) {
-    case NameRole: return s.name;
-    case HostRole: return s.host;
-    case TcpPortRole: return s.tcpPort;
-    case UdpPortRole: return s.udpPort;
-    case SourceRole: return static_cast<int>(s.source);
-    case SelectedRole: return index.row() == m_selected;
+    case NameRole: return info.name;
+    case HostRole: return info.host;
+    case PortRole: return info.port;
+    case KeyRole:  return info.key();
+    default:       return QVariant();
     }
-    return {};
 }
 
 QHash<int, QByteArray> AACServerDiscoveryModel::roleNames() const
 {
-    return {
-        { NameRole, "name" },
-        { HostRole, "host" },
-        { TcpPortRole, "tcpPort" },
-        { UdpPortRole, "udpPort" },
-        { SourceRole, "source" },
-        { SelectedRole, "selected" }
-    };
+    QHash<int, QByteArray> roles;
+    roles[NameRole] = "name";
+    roles[HostRole] = "host";
+    roles[PortRole] = "port";
+    roles[KeyRole]  = "key";
+    return roles;
 }
 
-void AACServerDiscoveryModel::addServer(const ServerInfo& info)
-{
-    beginInsertRows(QModelIndex(), m_items.size(), m_items.size());
-    m_items.append(info);
-    endInsertRows();
-}
-
-void AACServerDiscoveryModel::clear()
+void AACServerDiscoveryModel::setServers(const QVector<ServerInfo>& servers)
 {
     beginResetModel();
-    m_items.clear();
-    m_selected = -1;
+    m_servers = servers;
+    m_highlightIndex = -1;
     endResetModel();
 }
 
-void AACServerDiscoveryModel::toggleSelection(int row)
+int AACServerDiscoveryModel::rowForKey(const QString& key) const
 {
-    if (row < 0 || row >= m_items.size())
-        return;
+    if (key.isEmpty())
+        return -1;
 
-    int old = m_selected;
-    m_selected = (m_selected == row ? -1 : row);
-
-    if (old >= 0)
-        emit dataChanged(index(old), index(old), { SelectedRole });
-    if (m_selected >= 0)
-        emit dataChanged(index(m_selected), index(m_selected), { SelectedRole });
-
-    if (m_selected >= 0)
-        emit selectionChanged(m_items[m_selected]);
+    for (int i = 0; i < m_servers.size(); ++i) {
+        if (m_servers[i].key() == key)
+            return i;
+    }
+    return -1;
 }
 
-ServerInfo AACServerDiscoveryModel::selectedServer() const
+QString AACServerDiscoveryModel::keyForRow(int row) const
 {
-    if (m_selected < 0 || m_selected >= m_items.size())
-        return {};
-    return m_items[m_selected];
+    if (row < 0 || row >= m_servers.size())
+        return QString();
+    return m_servers[row].key();
+}
+
+void AACServerDiscoveryModel::setHighlight(int row)
+{
+    if (row == m_highlightIndex)
+        return;
+
+    if (row < -1 || row >= m_servers.size())
+        return;
+
+    m_highlightIndex = row;
+    emit highlightChanged(row);
+}
+
+void AACServerDiscoveryModel::setSelected(int row)
+{
+    if (row < 0 || row >= m_servers.size())
+        return;
+
+    emit selectionChanged(m_servers[row]);
 }
