@@ -1,6 +1,6 @@
 #pragma once
 
-#include <QWidget>
+#include "AACScreenBase.h"
 #include <QVBoxLayout>
 #include <QPushButton>
 
@@ -12,7 +12,7 @@ class AACMainScreen;
 struct SelfVoiceState;
 struct OtherUserVoiceEvent;
 
-class InChannelScreen : public QWidget, public AACScreenAdapter
+class InChannelScreen : public AACScreenBase, public AACScreenAdapter
 {
     Q_OBJECT
 public:
@@ -20,7 +20,7 @@ public:
                              BackendAdapter* backend,
                              QWidget* parent = nullptr);
 
-    // AACScreenAdapter
+    // AACScreenAdapter overrides
     QList<QWidget*> interactiveWidgets() const override;
     QList<QWidget*> primaryWidgets() const override;
     QLayout* rootLayout() const override;

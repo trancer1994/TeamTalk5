@@ -1,37 +1,37 @@
 #pragma once
 
-#include <QWidget>
-#include <QGridLayout>
-#include <QList>
+#include "AACScreenBase.h"
+#include <QVector>
 
-#include "aac/AACFramework.h" // AACScreenAdapter, AACAccessibilityManager, AACButton
+class QGridLayout;
+class AACAccessibilityManager;
+class AACSymbolButton;
+struct AACVocabItem;
 
-class AACSymbolGridScreen : public QWidget, public AACScreenAdapter
+class AACSymbolGridScreen : public AACScreenBase
 {
     Q_OBJECT
-public:
-    explicit AACSymbolGridScreen(AACAccessibilityManager* aac, QWidget* parent = nullptr);
 
-    // AACScreenAdapter
+public:
+    explicit AACSymbolGridScreen(AACAccessibilityManager* aac,
+                                 QWidget* parent = nullptr);
+
+signals:
+    void symbolActivated(const QString& label);
+
+private slots:
+    void onSymbolClicked(const QString& label);
+
+private:
+    void rebuildGrid();
+
+    // AACScreenAdapter overrides via AACScreenBase
     QList<QWidget*> interactiveWidgets() const override;
     QList<QWidget*> primaryWidgets() const override;
     QLayout* rootLayout() const override;
-    QWidget* predictiveStripContainer() const override { return nullptr; }
-
-signals:
-    void symbolActivated(const QString& word);
-
-public slots:
-    void setCategory(const QString& category);
-
-private slots:
-    void onSymbolClicked();
 
 private:
     AACAccessibilityManager* m_aac = nullptr;
-    QGridLayout* m_rootLayout = nullptr;
-    QString m_currentCategory;
-    QList<AACButton*> m_buttons;
-
-    void rebuildGrid();
+    QGridLayout* m_layout = nullptr;
+    QVector<AACSymbolButton*> m_buttons;
 };

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <QVector>
+#include <QWidget>
 #include <QPushButton>
 #include <QtGlobal>
 #include <QObject>
@@ -35,6 +37,15 @@ class AACVocabularyManager;
 class AACPredictionEngine;
 class AACScreenAdapter;
 
+class AACScreenAdapter {
+public:
+    virtual ~AACScreenAdapter() = default;
+
+    virtual QList<QWidget*> interactiveWidgets() const = 0;
+    virtual QList<QWidget*> primaryWidgets() const = 0;
+    virtual QLayout* rootLayout() const = 0;
+    virtual QWidget* predictiveStripContainer() const = 0;
+};
 class AACAccessibilityManager : public QObject
 {
     Q_OBJECT
@@ -45,9 +56,10 @@ public:
     QStringList categories() const;
     QVector<AACVocabItem> words(const QString& category) const;
 
-void hydrate();
+    void hydrate();
     void persist();
     void attachToAppLifecycle(QObject* app);
+    void setKeyboardScanningLayout(const QVector<QVector<QWidget*>>& layout);
 
     QString activeCategory() const;
     AACProfile profile() const;
@@ -57,6 +69,9 @@ void hydrate();
     AACLayoutConfig layoutConfig() const;
     AACSpeechConfig speechConfig() const;
     bool predictionEnabled() const;
+    bool largeTargetsEnabled() const;
+    bool highContrastEnabled() const;
+    bool dwellEnabled() const;
 
     AACInputController* inputController() const;
     AACFeedbackEngine* feedbackEngine() const;
@@ -91,6 +106,10 @@ signals:
     void speechStarted(const QString& text);
     void speechFinished(const QString& text);
     void historyChanged(const QStringList& history);
+    void largeTargetsChanged(bool on);
+    void highContrastChanged(bool on);
+    void dwellChanged(bool on);
+    void keyboardScanningLayoutChanged(const QVector<QVector<QWidget*>>& layout);
 
 private:
     QString m_activeCategory;
@@ -114,8 +133,11 @@ private:
 
     AACSpeechConfig m_speechConfig;
 
+    QVector<QVector<QWidget*>> m_keyboardScanningLayout;
+
     std::unique_ptr<AACStorage> m_storage;
 };
+
 
 class AACLayoutEngine : public QObject
 {
@@ -163,6 +185,7 @@ public slots:
 private slots:
     void onDwellTick();
     void onScanningTick();
+    void onKeyboardScanningLayoutChanged(const QVector<QVector<QWidget*>>& layout);
 
 private:
     void rebuildScanningList();

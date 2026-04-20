@@ -1,0 +1,260 @@
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/backend/BluetoothHeadsetHelper.java[m[36m:[m[32m8[m[36m:[mimport android.bluetooth.Bluetooth[1;31mAdapter[m;
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/backend/BluetoothHeadsetHelper.java[m[36m:[m[32m42[m[36m:[m    private final Bluetooth[1;31mAdapter[m bluetooth[1;31mAdapter[m;
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/backend/BluetoothHeadsetHelper.java[m[36m:[m[32m60[m[36m:[m        bluetooth[1;31mAdapter[m = Bluetooth[1;31mAdapter[m.getDefault[1;31mAdapter[m();
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/backend/BluetoothHeadsetHelper.java[m[36m:[m[32m69[m[36m:[m        if ((bluetooth[1;31mAdapter[m != null) && bluetooth[1;31mAdapter[m.isEnabled() && !started) {
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/backend/BluetoothHeadsetHelper.java[m[36m:[m[32m70[m[36m:[m            if (!bluetooth[1;31mAdapter[m.getProfileProxy(context, headsetProfileListener, BluetoothProfile.HEADSET))
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/backend/BluetoothHeadsetHelper.java[m[36m:[m[32m80[m[36m:[m            if ((bluetooth[1;31mAdapter[m != null) && bluetooth[1;31mAdapter[m.isEnabled() && (bluetoothHeadset != null))
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/backend/BluetoothHeadsetHelper.java[m[36m:[m[32m81[m[36m:[m                bluetooth[1;31mAdapter[m.closeProfileProxy(BluetoothProfile.HEADSET, bluetoothHeadset);
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/data/DesktopAdapter.java[m[36m:[m[32m43[m[36m:[mpublic class Desktop[1;31mAdapter[m
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/data/DesktopAdapter.java[m[36m:[m[32m44[m[36m:[mextends Media[1;31mAdapter[m
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/data/DesktopAdapter.java[m[36m:[m[32m51[m[36m:[m    public Desktop[1;31mAdapter[m(Context context) {
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/data/FileListAdapter.java[m[36m:[m[32m42[m[36m:[mimport android.widget.Base[1;31mAdapter[m;
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/data/FileListAdapter.java[m[36m:[m[32m65[m[36m:[mpublic class FileList[1;31mAdapter[m
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/data/FileListAdapter.java[m[36m:[m[32m66[m[36m:[mextends Base[1;31mAdapter[m
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/data/FileListAdapter.java[m[36m:[m[32m90[m[36m:[m    public FileList[1;31mAdapter[m(Context uiContext, Activity uiActivity, AccessibilityAssistant accessibilityAssistant) {
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/data/MapAdapter.java[m[36m:[m[32m32[m[36m:[mimport android.widget.Base[1;31mAdapter[m;
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/data/MapAdapter.java[m[36m:[m[32m35[m[36m:[mpublic class Map[1;31mAdapter[m extends Base[1;31mAdapter[m {
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/data/MapAdapter.java[m[36m:[m[32m43[m[36m:[m    public Map[1;31mAdapter[m(Context context, int layout_item, int text_id) {
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/data/MediaAdapter.java[m[36m:[m[32m34[m[36m:[mimport android.widget.BaseExpandableList[1;31mAdapter[m;
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/data/MediaAdapter.java[m[36m:[m[32m53[m[36m:[mpublic class Media[1;31mAdapter[m
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/data/MediaAdapter.java[m[36m:[m[32m54[m[36m:[mextends BaseExpandableList[1;31mAdapter[m
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/data/MediaAdapter.java[m[36m:[m[32m75[m[36m:[m    public Media[1;31mAdapter[m(Context context) {
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/data/MediaAdapter.java[m[36m:[m[32m285[m[36m:[m            Media[1;31mAdapter[m.this.notifyDataSetChanged();
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/data/MediaFileVideoAdapter.java[m[36m:[m[32m42[m[36m:[mpublic class MediaFileVideo[1;31mAdapter[m extends Media[1;31mAdapter[m 
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/data/MediaFileVideoAdapter.java[m[36m:[m[32m47[m[36m:[m    public MediaFileVideo[1;31mAdapter[m(Context context) {
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/data/TextMessageAdapter.java[m[36m:[m[32m39[m[36m:[mimport android.widget.Base[1;31mAdapter[m;
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/data/TextMessageAdapter.java[m[36m:[m[32m42[m[36m:[mpublic class TextMessage[1;31mAdapter[m extends Base[1;31mAdapter[m {
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/data/TextMessageAdapter.java[m[36m:[m[32m67[m[36m:[m    public TextMessage[1;31mAdapter[m(Context context, AccessibilityAssistant accessibilityAssistant,
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/data/TextMessageAdapter.java[m[36m:[m[32m76[m[36m:[m    public TextMessage[1;31mAdapter[m(Context context, AccessibilityAssistant accessibilityAssistant) {
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/data/WebcamAdapter.java[m[36m:[m[32m42[m[36m:[mpublic class Webcam[1;31mAdapter[m extends Media[1;31mAdapter[m implements ClientEventListener.OnUserVideoCaptureListener {
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/data/WebcamAdapter.java[m[36m:[m[32m48[m[36m:[m    public Webcam[1;31mAdapter[m(Context context) {
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/AudioCodecActivity.java[m[36m:[m[32m44[m[36m:[mimport androidx.fragment.app.FragmentPager[1;31mAdapter[m;
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/AudioCodecActivity.java[m[36m:[m[32m58[m[36m:[mimport dk.bearware.data.Map[1;31mAdapter[m;
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/AudioCodecActivity.java[m[36m:[m[32m70[m[36m:[m    SectionsPager[1;31mAdapter[m mSectionsPager[1;31mAdapter[m;
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/AudioCodecActivity.java[m[36m:[m[32m110[m[36m:[m        mSectionsPager[1;31mAdapter[m = new SectionsPager[1;31mAdapter[m(getSupportFragmentManager());
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/AudioCodecActivity.java[m[36m:[m[32m114[m[36m:[m        mViewPager.set[1;31mAdapter[m(mSectionsPager[1;31mAdapter[m);
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/AudioCodecActivity.java[m[36m:[m[32m127[m[36m:[m        for(int i = 0;i < mSectionsPager[1;31mAdapter[m.getCount();i++) {
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/AudioCodecActivity.java[m[36m:[m[32m133[m[36m:[m                mSectionsPager[1;31mAdapter[m.getPageTitle(i)).setTabListener(this));
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/AudioCodecActivity.java[m[36m:[m[32m153[m[36m:[m            Fragment frag = mSectionsPager[1;31mAdapter[m.getItem(i);
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/AudioCodecActivity.java[m[36m:[m[32m207[m[36m:[m    public class SectionsPager[1;31mAdapter[m extends FragmentPager[1;31mAdapter[m {
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/AudioCodecActivity.java[m[36m:[m[32m209[m[36m:[m        public SectionsPager[1;31mAdapter[m(FragmentManager fm) {
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/AudioCodecActivity.java[m[36m:[m[32m271[m[36m:[m        Map[1;31mAdapter[m appMap;
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/AudioCodecActivity.java[m[36m:[m[32m272[m[36m:[m        Map[1;31mAdapter[m srMap;
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/AudioCodecActivity.java[m[36m:[m[32m273[m[36m:[m        Map[1;31mAdapter[m audMap;
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/AudioCodecActivity.java[m[36m:[m[32m274[m[36m:[m        Map[1;31mAdapter[m fsMap;
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/AudioCodecActivity.java[m[36m:[m[32m282[m[36m:[m            appMap = new Map[1;31mAdapter[m(activity, R.layout.item_spinner, R.id.spinTextView);
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/AudioCodecActivity.java[m[36m:[m[32m283[m[36m:[m            srMap = new Map[1;31mAdapter[m(activity, R.layout.item_spinner, R.id.spinTextView);
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/AudioCodecActivity.java[m[36m:[m[32m284[m[36m:[m            audMap = new Map[1;31mAdapter[m(activity, R.layout.item_spinner, R.id.spinTextView);
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/AudioCodecActivity.java[m[36m:[m[32m285[m[36m:[m            fsMap = new Map[1;31mAdapter[m(activity, R.layout.item_spinner, R.id.spinTextView);
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/AudioCodecActivity.java[m[36m:[m[32m355[m[36m:[m                app.set[1;31mAdapter[m(appMap);
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/AudioCodecActivity.java[m[36m:[m[32m358[m[36m:[m                sr.set[1;31mAdapter[m(srMap);
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/AudioCodecActivity.java[m[36m:[m[32m364[m[36m:[m                audchan.set[1;31mAdapter[m(audMap);
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/AudioCodecActivity.java[m[36m:[m[32m417[m[36m:[m                framesize.set[1;31mAdapter[m(fsMap);
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/AudioCodecActivity.java[m[36m:[m[32m428[m[36m:[m        Map[1;31mAdapter[m srMap;
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/AudioCodecActivity.java[m[36m:[m[32m436[m[36m:[m            srMap = new Map[1;31mAdapter[m(activity, R.layout.item_spinner, R.id.spinTextView);
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/AudioCodecActivity.java[m[36m:[m[32m469[m[36m:[m                sr.set[1;31mAdapter[m(srMap);
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/AudioCodecActivity.java[m[36m:[m[32m503[m[36m:[m        Map[1;31mAdapter[m srMap;
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/AudioCodecActivity.java[m[36m:[m[32m511[m[36m:[m            srMap = new Map[1;31mAdapter[m(activity, R.layout.item_spinner, R.id.spinTextView);
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/AudioCodecActivity.java[m[36m:[m[32m554[m[36m:[m                sr.set[1;31mAdapter[m(srMap);
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m67[m[36m:[mimport android.widget.[1;31mAdapter[mView;
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m68[m[36m:[mimport android.widget.[1;31mAdapter[mView.OnItemClickListener;
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m69[m[36m:[mimport android.widget.[1;31mAdapter[mView.OnItemLongClickListener;
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m70[m[36m:[mimport android.widget.Base[1;31mAdapter[m;
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m90[m[36m:[mimport androidx.fragment.app.FragmentPager[1;31mAdapter[m;
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m128[m[36m:[mimport dk.bearware.data.FileList[1;31mAdapter[m;
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m129[m[36m:[mimport dk.bearware.data.Media[1;31mAdapter[m;
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m135[m[36m:[mimport dk.bearware.data.TextMessage[1;31mAdapter[m;
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m166[m[36m:[m    SectionsPager[1;31mAdapter[m mSectionsPager[1;31mAdapter[m;
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m193[m[36m:[m    ChannelList[1;31mAdapter[m channels[1;31mAdapter[m;
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m194[m[36m:[m    FileList[1;31mAdapter[m files[1;31mAdapter[m;
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m195[m[36m:[m    TextMessage[1;31mAdapter[m textmsg[1;31mAdapter[m;
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m196[m[36m:[m    Media[1;31mAdapter[m media[1;31mAdapter[m;
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m237[m[36m:[m    public ChannelList[1;31mAdapter[m getChannels[1;31mAdapter[m() {
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m238[m[36m:[m        return channels[1;31mAdapter[m;
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m241[m[36m:[m    public FileList[1;31mAdapter[m getFiles[1;31mAdapter[m() {
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m242[m[36m:[m        return files[1;31mAdapter[m;
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m245[m[36m:[m    public TextMessage[1;31mAdapter[m getTextMessages[1;31mAdapter[m() {
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m246[m[36m:[m        return textmsg[1;31mAdapter[m;
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m249[m[36m:[m    public Media[1;31mAdapter[m getMedia[1;31mAdapter[m() {
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m250[m[36m:[m        return media[1;31mAdapter[m;
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m281[m[36m:[m        channels[1;31mAdapter[m = new ChannelList[1;31mAdapter[m(this.getBaseContext());
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m282[m[36m:[m        files[1;31mAdapter[m = new FileList[1;31mAdapter[m(this, this, accessibilityAssistant);
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m283[m[36m:[m        textmsg[1;31mAdapter[m = new TextMessage[1;31mAdapter[m(this, accessibilityAssistant);
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m284[m[36m:[m        media[1;31mAdapter[m = new Media[1;31mAdapter[m(this.getBaseContext());
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m288[m[36m:[m        mSectionsPager[1;31mAdapter[m = new SectionsPager[1;31mAdapter[m(getSupportFragmentManager());
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m293[m[36m:[m        mViewPager.set[1;31mAdapter[m(mSectionsPager[1;31mAdapter[m);
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m294[m[36m:[m        mViewPager.addOnPageChangeListener(mSectionsPager[1;31mAdapter[m);
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m404[m[36m:[m                Channel parentChannel = ((currentPage == SectionsPager[1;31mAdapter[m.CHANNELS_PAGE)
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m409[m[36m:[m                if (currentPage != SectionsPager[1;31mAdapter[m.CHANNELS_PAGE) {
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m410[m[36m:[m                    mViewPager.setCurrentItem(SectionsPager[1;31mAdapter[m.CHANNELS_PAGE);
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m413[m[36m:[m                    channels[1;31mAdapter[m.notifyDataSetChanged();
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m415[m[36m:[m                else if (files[1;31mAdapter[m.getActiveTransfersCount() > 0) {
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m418[m[36m:[m                        files[1;31mAdapter[m.cancelAllTransfers();
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m554[m[36m:[m        getTextMessages[1;31mAdapter[m().showLogMessages(prefs.get("show_log_messages", true));
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m601[m[36m:[m            mViewPager.removeOnPageChangeListener(mSectionsPager[1;31mAdapter[m);
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m646[m[36m:[m        String remoteName = files[1;31mAdapter[m.getRemoteName(path);
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m732[m[36m:[m    public class SectionsPager[1;31mAdapter[m extends FragmentPager[1;31mAdapter[m implements ViewPager.OnPageChangeListener {
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m741[m[36m:[m        public SectionsPager[1;31mAdapter[m(FragmentManager fm) {
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m840[m[36m:[m        channels[1;31mAdapter[m.notifyDataSetChanged();
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m857[m[36m:[m        if (files[1;31mAdapter[m.getActiveTransfersCount() > 0) {
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m861[m[36m:[m                files[1;31mAdapter[m.cancelAllTransfers();
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m965[m[36m:[m            mainActivity.accessibilityAssistant.registerPage(rootView, SectionsPager[1;31mAdapter[m.CHANNELS_PAGE);
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m968[m[36m:[m            channelsList.set[1;31mAdapter[m(mainActivity.getChannels[1;31mAdapter[m());
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m992[m[36m:[m            mainActivity.accessibilityAssistant.registerPage(rootView, SectionsPager[1;31mAdapter[m.CHAT_PAGE);
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m1003[m[36m:[m            chatlog.set[1;31mAdapter[m(mainActivity.getTextMessages[1;31mAdapter[m());
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m1071[m[36m:[m            mainActivity.accessibilityAssistant.registerPage(rootView, SectionsPager[1;31mAdapter[m.MEDIA_PAGE);
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m1074[m[36m:[m            mediaview.set[1;31mAdapter[m(mainActivity.getMedia[1;31mAdapter[m());
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m1084[m[36m:[m            mainActivity.accessibilityAssistant.registerPage(view, SectionsPager[1;31mAdapter[m.FILES_PAGE);
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m1085[m[36m:[m            setList[1;31mAdapter[m(mainActivity.getFiles[1;31mAdapter[m());
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m1090[m[36m:[m    class ChannelList[1;31mAdapter[m extends Base[1;31mAdapter[m {
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m1105[m[36m:[m        ChannelList[1;31mAdapter[m(Context context) {
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m1382[m[36m:[m                    files[1;31mAdapter[m.performPendingUpdate();
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m1443[m[36m:[m    public void onItemClick([1;31mAdapter[mView< ? > l, View v, int position, long id) {
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m1445[m[36m:[m        Object item = channels[1;31mAdapter[m.getItem(position);
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m1454[m[36m:[m            channels[1;31mAdapter[m.notifyDataSetChanged();
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m1463[m[36m:[m    public boolean onItemLongClick([1;31mAdapter[mView< ? > l, View v, int position, long id) {
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m1464[m[36m:[m        Object item = channels[1;31mAdapter[m.getItem(position);
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m1587[m[36m:[m    channels[1;31mAdapter[m.notifyDataSetChanged();
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m1662[m[36m:[m            channels[1;31mAdapter[m.notifyDataSetChanged();
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m1824[m[36m:[m        mSectionsPager[1;31mAdapter[m.onPageSelected(mViewPager.getCurrentItem());
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m1826[m[36m:[m        channels[1;31mAdapter[m.notifyDataSetChanged();
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m1828[m[36m:[m        textmsg[1;31mAdapter[m.setTextMessages(service.getChatLogTextMsgs());
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m1829[m[36m:[m        textmsg[1;31mAdapter[m.setMyUserID(getClient().getMyUserID());
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m1830[m[36m:[m        textmsg[1;31mAdapter[m.notifyDataSetChanged();
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m1832[m[36m:[m        media[1;31mAdapter[m.setTeamTalkService(service);
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m1833[m[36m:[m        media[1;31mAdapter[m.notifyDataSetChanged();
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m1835[m[36m:[m        files[1;31mAdapter[m.setTeamTalkService(service);
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m1836[m[36m:[m        files[1;31mAdapter[m.update(mychanid);
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m1922[m[36m:[m        files[1;31mAdapter[m.setTeamTalkService(null);
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m1923[m[36m:[m        media[1;31mAdapter[m.clearTeamTalkService(service);
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m1989[m[36m:[m        textmsg[1;31mAdapter[m.setMyUserID(my_userid);
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m1995[m[36m:[m        channels[1;31mAdapter[m.notifyDataSetChanged();
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m2002[m[36m:[m        channels[1;31mAdapter[m.notifyDataSetChanged();
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m2009[m[36m:[m        channels[1;31mAdapter[m.notifyDataSetChanged();
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m2018[m[36m:[m        textmsg[1;31mAdapter[m.notifyDataSetChanged();
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m2034[m[36m:[m        textmsg[1;31mAdapter[m.notifyDataSetChanged();
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m2049[m[36m:[m            channels[1;31mAdapter[m.notifyDataSetChanged();
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m2067[m[36m:[m            files[1;31mAdapter[m.update(curchannel);
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m2073[m[36m:[m            channels[1;31mAdapter[m.notifyDataSetChanged();
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m2085[m[36m:[m                textmsg[1;31mAdapter[m.notifyDataSetChanged();
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m2086[m[36m:[m                channels[1;31mAdapter[m.notifyDataSetChanged();
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m2098[m[36m:[m                textmsg[1;31mAdapter[m.notifyDataSetChanged();
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m2099[m[36m:[m                channels[1;31mAdapter[m.notifyDataSetChanged();
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m2104[m[36m:[m            channels[1;31mAdapter[m.notifyDataSetChanged();
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m2117[m[36m:[m            textmsg[1;31mAdapter[m.notifyDataSetChanged();
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m2126[m[36m:[m            textmsg[1;31mAdapter[m.notifyDataSetChanged();
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m2134[m[36m:[m            textmsg[1;31mAdapter[m.notifyDataSetChanged();
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m2135[m[36m:[m            channels[1;31mAdapter[m.notifyDataSetChanged();
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m2148[m[36m:[m            channels[1;31mAdapter[m.notifyDataSetChanged();
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m2159[m[36m:[m            textmsg[1;31mAdapter[m.notifyDataSetChanged();
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m2182[m[36m:[m            textmsg[1;31mAdapter[m.notifyDataSetChanged();
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m2231[m[36m:[m            channels[1;31mAdapter[m.notifyDataSetChanged();
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m2240[m[36m:[m            channels[1;31mAdapter[m.notifyDataSetChanged();
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m2271[m[36m:[m            channels[1;31mAdapter[m.notifyDataSetChanged();
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m2278[m[36m:[m        files[1;31mAdapter[m.update();
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m2289[m[36m:[m        files[1;31mAdapter[m.update();
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/MainActivity.java[m[36m:[m[32m2311[m[36m:[m            channels[1;31mAdapter[m.notifyDataSetChanged();
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/OnlineUsersActivity.java[m[36m:[m[32m37[m[36m:[mimport android.widget.[1;31mAdapter[mView;
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/OnlineUsersActivity.java[m[36m:[m[32m38[m[36m:[mimport android.widget.Array[1;31mAdapter[m;
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/OnlineUsersActivity.java[m[36m:[m[32m81[m[36m:[m    private OnlineUser[1;31mAdapter[m adapter;
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/OnlineUsersActivity.java[m[36m:[m[32m100[m[36m:[m        adapter = new OnlineUser[1;31mAdapter[m(this, onlineUsers);
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/OnlineUsersActivity.java[m[36m:[m[32m101[m[36m:[m        onlineUsersList.set[1;31mAdapter[m(adapter);
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/OnlineUsersActivity.java[m[36m:[m[32m103[m[36m:[m        onlineUsersList.setOnItemClickListener(new [1;31mAdapter[mView.OnItemClickListener() {
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/OnlineUsersActivity.java[m[36m:[m[32m105[m[36m:[m            public void onItemClick([1;31mAdapter[mView<?> parent, View view, int position, long id) {
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/OnlineUsersActivity.java[m[36m:[m[32m113[m[36m:[m        onlineUsersList.setOnItemLongClickListener(new [1;31mAdapter[mView.OnItemLongClickListener() {
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/OnlineUsersActivity.java[m[36m:[m[32m115[m[36m:[m            public boolean onItemLongClick([1;31mAdapter[mView<?> parent, View v, int position, long id) {
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/OnlineUsersActivity.java[m[36m:[m[32m300[m[36m:[m    private class OnlineUser[1;31mAdapter[m extends Array[1;31mAdapter[m<User> {
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/OnlineUsersActivity.java[m[36m:[m[32m303[m[36m:[m        public OnlineUser[1;31mAdapter[m(Context context, List<User> users) {
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/ServerListActivity.java[m[36m:[m[32m100[m[36m:[m    private ServerList[1;31mAdapter[m adapter;
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/ServerListActivity.java[m[36m:[m[32m138[m[36m:[m        adapter = new ServerList[1;31mAdapter[m();
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/ServerListActivity.java[m[36m:[m[32m140[m[36m:[m        recyclerView.set[1;31mAdapter[m(adapter);
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/ServerListActivity.java[m[36m:[m[32m450[m[36m:[m    private class ServerList[1;31mAdapter[m extends RecyclerView.[1;31mAdapter[m<ServerList[1;31mAdapter[m.ServerViewHolder> {
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/ServerListActivity.java[m[36m:[m[32m454[m[36m:[m        public ServerList[1;31mAdapter[m() {
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/TextMessageActivity.java[m[36m:[m[32m50[m[36m:[mimport dk.bearware.data.TextMessage[1;31mAdapter[m;
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/TextMessageActivity.java[m[36m:[m[32m61[m[36m:[m    TextMessage[1;31mAdapter[m adapter;
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/TextMessageActivity.java[m[36m:[m[32m135[m[36m:[m        adapter = new TextMessage[1;31mAdapter[m(this.getBaseContext(), accessibilityAssistant,
+[35mClient/TeamTalkAndroid/src/main/java/dk/bearware/gui/TextMessageActivity.java[m[36m:[m[32m141[m[36m:[m        lv.set[1;31mAdapter[m(adapter);
+[35mClient/qtTeamTalk/aac/AACFramework.cpp[m[36m:[m[32m315[m[36m:[mvoid AACLayoutEngine::applyLayout(AACScreen[1;31mAdapter[m* screen)
+[35mClient/qtTeamTalk/aac/AACFramework.cpp[m[36m:[m[32m334[m[36m:[mvoid AACLayoutEngine::applyLargeTargets(AACScreen[1;31mAdapter[m* screen)
+[35mClient/qtTeamTalk/aac/AACFramework.cpp[m[36m:[m[32m345[m[36m:[mvoid AACLayoutEngine::applyOneHandLayout(AACScreen[1;31mAdapter[m* screen)
+[35mClient/qtTeamTalk/aac/AACFramework.cpp[m[36m:[m[32m360[m[36m:[mvoid AACLayoutEngine::applyUltraMinimal(AACScreen[1;31mAdapter[m* screen)
+[35mClient/qtTeamTalk/aac/AACFramework.cpp[m[36m:[m[32m375[m[36m:[mvoid AACLayoutEngine::applyPredictiveStrip(AACScreen[1;31mAdapter[m* screen)
+[35mClient/qtTeamTalk/aac/AACFramework.cpp[m[36m:[m[32m434[m[36m:[mvoid AACInputController::attachScreen(AACScreen[1;31mAdapter[m* screen)
+[35mClient/qtTeamTalk/aac/AACFramework.cpp[m[36m:[m[32m440[m[36m:[mvoid AACInputController::detachScreen(AACScreen[1;31mAdapter[m* screen)
+[35mClient/qtTeamTalk/aac/AACFramework.h[m[36m:[m[32m36[m[36m:[mclass AACScreen[1;31mAdapter[m;
+[35mClient/qtTeamTalk/aac/AACFramework.h[m[36m:[m[32m127[m[36m:[m    void applyLayout(AACScreen[1;31mAdapter[m* screen);
+[35mClient/qtTeamTalk/aac/AACFramework.h[m[36m:[m[32m128[m[36m:[m    void applyLargeTargets(AACScreen[1;31mAdapter[m* screen);
+[35mClient/qtTeamTalk/aac/AACFramework.h[m[36m:[m[32m129[m[36m:[m    void applyOneHandLayout(AACScreen[1;31mAdapter[m* screen);
+[35mClient/qtTeamTalk/aac/AACFramework.h[m[36m:[m[32m130[m[36m:[m    void applyUltraMinimal(AACScreen[1;31mAdapter[m* screen);
+[35mClient/qtTeamTalk/aac/AACFramework.h[m[36m:[m[32m131[m[36m:[m    void applyPredictiveStrip(AACScreen[1;31mAdapter[m* screen);
+[35mClient/qtTeamTalk/aac/AACFramework.h[m[36m:[m[32m147[m[36m:[m    void attachScreen(AACScreen[1;31mAdapter[m* screen);
+[35mClient/qtTeamTalk/aac/AACFramework.h[m[36m:[m[32m148[m[36m:[m    void detachScreen(AACScreen[1;31mAdapter[m* screen);
+[35mClient/qtTeamTalk/aac/AACFramework.h[m[36m:[m[32m176[m[36m:[m    AACScreen[1;31mAdapter[m* m_currentScreen = nullptr;
+[35mClient/qtTeamTalk/aac/StateMachine.cpp[m[36m:[m[32m8[m[36m:[mvoid StateMachine::attachBackend(Backend[1;31mAdapter[m* backend)
+[35mClient/qtTeamTalk/aac/StateMachine.cpp[m[36m:[m[32m12[m[36m:[m    connect(backend, &Backend[1;31mAdapter[m::connectionStateChanged,
+[35mClient/qtTeamTalk/aac/StateMachine.cpp[m[36m:[m[32m15[m[36m:[m    connect(backend, &Backend[1;31mAdapter[m::channelEvent,
+[35mClient/qtTeamTalk/aac/StateMachine.cpp[m[36m:[m[32m18[m[36m:[m    connect(backend, &Backend[1;31mAdapter[m::errorOccurred,
+[35mClient/qtTeamTalk/aac/StateMachine.cpp[m[36m:[m[32m21[m[36m:[m    connect(backend, &Backend[1;31mAdapter[m::selfVoiceEvent,
+[35mClient/qtTeamTalk/aac/StateMachine.cpp[m[36m:[m[32m24[m[36m:[m    connect(backend, &Backend[1;31mAdapter[m::audioDeviceEvent,
+[35mClient/qtTeamTalk/aac/StateMachine.cpp[m[36m:[m[32m27[m[36m:[m    connect(backend, &Backend[1;31mAdapter[m::textMessageEvent,
+[35mClient/qtTeamTalk/aac/app/AppController.cpp[m[36m:[m[32m2[m[36m:[m#include "Backend[1;31mAdapter[m.h"
+[35mClient/qtTeamTalk/aac/app/AppController.cpp[m[36m:[m[32m9[m[36m:[m    m_backend = new Backend[1;31mAdapter[m(this);
+[35mClient/qtTeamTalk/aac/app/AppController.h[m[36m:[m[32m5[m[36m:[mclass Backend[1;31mAdapter[m;
+[35mClient/qtTeamTalk/aac/app/AppController.h[m[36m:[m[32m18[m[36m:[m    Backend[1;31mAdapter[m* m_backend = nullptr;
+[35mClient/qtTeamTalk/aac/backend/BackendAdapter.cpp[m[36m:[m[32m1[m[36m:[m#include "Backend[1;31mAdapter[m.h"
+[35mClient/qtTeamTalk/aac/backend/BackendAdapter.cpp[m[36m:[m[32m4[m[36m:[mBackend[1;31mAdapter[m::Backend[1;31mAdapter[m(QObject* parent)
+[35mClient/qtTeamTalk/aac/backend/BackendAdapter.cpp[m[36m:[m[32m16[m[36m:[mvoid Backend[1;31mAdapter[m::connectToServer(const QString& host, int port, const QString& username)
+[35mClient/qtTeamTalk/aac/backend/BackendAdapter.cpp[m[36m:[m[32m33[m[36m:[mvoid Backend[1;31mAdapter[m::disconnectFromServer()
+[35mClient/qtTeamTalk/aac/backend/BackendAdapter.cpp[m[36m:[m[32m45[m[36m:[mvoid Backend[1;31mAdapter[m::refreshChannels()
+[35mClient/qtTeamTalk/aac/backend/BackendAdapter.cpp[m[36m:[m[32m51[m[36m:[mvoid Backend[1;31mAdapter[m::joinChannel(int channelId)
+[35mClient/qtTeamTalk/aac/backend/BackendAdapter.cpp[m[36m:[m[32m57[m[36m:[mvoid Backend[1;31mAdapter[m::leaveChannel()
+[35mClient/qtTeamTalk/aac/backend/BackendAdapter.cpp[m[36m:[m[32m69[m[36m:[mvoid Backend[1;31mAdapter[m::setTransmitEnabled(bool enabled)
+[35mClient/qtTeamTalk/aac/backend/BackendAdapter.cpp[m[36m:[m[32m85[m[36m:[mvoid Backend[1;31mAdapter[m::processEvents()
+[35mClient/qtTeamTalk/aac/backend/BackendAdapter.cpp[m[36m:[m[32m209[m[36m:[mQString Backend[1;31mAdapter[m::mapErrorCode(int code, const QString& raw)
+[35mClient/qtTeamTalk/aac/backend/BackendAdapter.cpp[m[36m:[m[32m238[m[36m:[mvoid Backend[1;31mAdapter[m::log(const QString& message)
+[35mClient/qtTeamTalk/aac/backend/BackendAdapter.h[m[36m:[m[32m8[m[36m:[mclass Backend[1;31mAdapter[m : public QObject {
+[35mClient/qtTeamTalk/aac/backend/BackendAdapter.h[m[36m:[m[32m11[m[36m:[m    explicit Backend[1;31mAdapter[m(QObject* parent = nullptr);
+[35mClient/qtTeamTalk/aac/backend/StateMachine.cpp[m[36m:[m[32m82[m[36m:[mvoid StateMachine::attachBackend(Backend[1;31mAdapter[m* backend)
+[35mClient/qtTeamTalk/aac/backend/StateMachine.cpp[m[36m:[m[32m86[m[36m:[m    connect(backend, &Backend[1;31mAdapter[m::channelsEnumerated,
+[35mClient/qtTeamTalk/aac/backend/StateMachine.cpp[m[36m:[m[32m89[m[36m:[m    connect(backend, &Backend[1;31mAdapter[m::connectionStateChanged,
+[35mClient/qtTeamTalk/aac/backend/StateMachine.cpp[m[36m:[m[32m92[m[36m:[m    connect(backend, &Backend[1;31mAdapter[m::channelEvent,
+[35mClient/qtTeamTalk/aac/backend/StateMachine.cpp[m[36m:[m[32m95[m[36m:[m    connect(backend, &Backend[1;31mAdapter[m::errorOccurred,
+[35mClient/qtTeamTalk/aac/backend/StateMachine.cpp[m[36m:[m[32m98[m[36m:[m    connect(backend, &Backend[1;31mAdapter[m::selfVoiceEvent,
+[35mClient/qtTeamTalk/aac/backend/StateMachine.cpp[m[36m:[m[32m101[m[36m:[m    connect(backend, &Backend[1;31mAdapter[m::audioDeviceEvent,
+[35mClient/qtTeamTalk/aac/backend/StateMachine.cpp[m[36m:[m[32m104[m[36m:[m    connect(backend, &Backend[1;31mAdapter[m::textMessageEvent,
+[35mClient/qtTeamTalk/aac/backend/StateMachine.h[m[36m:[m[32m6[m[36m:[m#include "Backend[1;31mAdapter[m.h"
+[35mClient/qtTeamTalk/aac/backend/StateMachine.h[m[36m:[m[32m15[m[36m:[m    void attachBackend(Backend[1;31mAdapter[m* backend);
+[35mClient/qtTeamTalk/aac/backend/StateMachine.h[m[36m:[m[32m59[m[36m:[m    Backend[1;31mAdapter[m* m_backend = nullptr;
+[35mClient/qtTeamTalk/aac/state/StateMachine.h[m[36m:[m[32m10[m[36m:[m// Your Backend[1;31mAdapter[m already drives most transitions.
+[35mClient/qtTeamTalk/aac/state/StateMachine.h[m[36m:[m[32m37[m[36m:[m    // These slots are called by Backend[1;31mAdapter[m
+[35mClient/qtTeamTalk/aac/state/StateMachine_BackendWiring.cpp[m[36m:[m[32m2[m[36m:[m#include "Backend[1;31mAdapter[m.h"
+[35mClient/qtTeamTalk/aac/state/StateMachine_BackendWiring.cpp[m[36m:[m[32m4[m[36m:[mvoid StateMachine::attachBackend(Backend[1;31mAdapter[m* backend)
+[35mClient/qtTeamTalk/aac/state/StateMachine_BackendWiring.cpp[m[36m:[m[32m9[m[36m:[m    connect(backend, &Backend[1;31mAdapter[m::connectionStateChanged,
+[35mClient/qtTeamTalk/aac/state/StateMachine_BackendWiring.cpp[m[36m:[m[32m12[m[36m:[m    connect(backend, &Backend[1;31mAdapter[m::channelEvent,
+[35mClient/qtTeamTalk/aac/state/StateMachine_BackendWiring.cpp[m[36m:[m[32m15[m[36m:[m    connect(backend, &Backend[1;31mAdapter[m::errorOccurred,
+[35mClient/qtTeamTalk/aac/state/ui_state_adapter.cpp[m[36m:[m[32m4[m[36m:[mUiState[1;31mAdapter[m::UiState[1;31mAdapter[m(StateMachine *machine, QObject *parent)
+[35mClient/qtTeamTalk/aac/state/ui_state_adapter.h[m[36m:[m[32m6[m[36m:[mclass UiState[1;31mAdapter[m : public QObject {
+[35mClient/qtTeamTalk/aac/state/ui_state_adapter.h[m[36m:[m[32m9[m[36m:[m    explicit UiState[1;31mAdapter[m(StateMachine *machine, QObject *parent = nullptr);
+[35mClient/qtTeamTalk/aac/ui/AACCategoryScreen.h[m[36m:[m[32m7[m[36m:[m#include "aac/AACFramework.h" // AACScreen[1;31mAdapter[m, AACAccessibilityManager
+[35mClient/qtTeamTalk/aac/ui/AACCategoryScreen.h[m[36m:[m[32m9[m[36m:[mclass AACCategoryScreen : public QWidget, public AACScreen[1;31mAdapter[m
+[35mClient/qtTeamTalk/aac/ui/AACCategoryScreen.h[m[36m:[m[32m15[m[36m:[m    // AACScreen[1;31mAdapter[m
+[35mClient/qtTeamTalk/aac/ui/AACMainScreen.cpp[m[36m:[m[32m76[m[36m:[m// AACScreen[1;31mAdapter[m implementation
+[35mClient/qtTeamTalk/aac/ui/AACMainScreen.h[m[36m:[m[32m12[m[36m:[m#include "aac/AACFramework.h"   // AACScreen[1;31mAdapter[m, AACAccessibilityManager, AACPredictionEngine
+[35mClient/qtTeamTalk/aac/ui/AACMainScreen.h[m[36m:[m[32m24[m[36m:[m *  - Implements AACScreen[1;31mAdapter[m for layout + scanning
+[35mClient/qtTeamTalk/aac/ui/AACMainScreen.h[m[36m:[m[32m26[m[36m:[mclass AACMainScreen : public QWidget, public AACScreen[1;31mAdapter[m
+[35mClient/qtTeamTalk/aac/ui/AACMainScreen.h[m[36m:[m[32m32[m[36m:[m    // AACScreen[1;31mAdapter[m implementation
+[35mClient/qtTeamTalk/aac/ui/AACScreen.h[m[36m:[m[32m12[m[36m:[mclass AACScreen : public QWidget, public AACScreen[1;31mAdapter[m {
+[35mClient/qtTeamTalk/aac/ui/AACScreen.h[m[36m:[m[32m17[m[36m:[m    // AACScreen[1;31mAdapter[m interface
+[35mClient/qtTeamTalk/aac/ui/AACSymbolGridScreen.h[m[36m:[m[32m7[m[36m:[m#include "aac/AACFramework.h" // AACScreen[1;31mAdapter[m, AACAccessibilityManager, AACButton
+[35mClient/qtTeamTalk/aac/ui/AACSymbolGridScreen.h[m[36m:[m[32m9[m[36m:[mclass AACSymbolGridScreen : public QWidget, public AACScreen[1;31mAdapter[m
+[35mClient/qtTeamTalk/aac/ui/AACSymbolGridScreen.h[m[36m:[m[32m15[m[36m:[m    // AACScreen[1;31mAdapter[m
+[35mClient/qtTeamTalk/aac/ui/InChannelScreen.cpp[m[36m:[m[32m6[m[36m:[m#include "backend/Backend[1;31mAdapter[m.h"
+[35mClient/qtTeamTalk/aac/ui/InChannelScreen.cpp[m[36m:[m[32m10[m[36m:[m                                 Backend[1;31mAdapter[m* backend,
+[35mClient/qtTeamTalk/aac/ui/InChannelScreen.h[m[36m:[m[32m7[m[36m:[m#include "aac/AACFramework.h" // AACScreen[1;31mAdapter[m, AACAccessibilityManager
+[35mClient/qtTeamTalk/aac/ui/InChannelScreen.h[m[36m:[m[32m9[m[36m:[mclass Backend[1;31mAdapter[m;
+[35mClient/qtTeamTalk/aac/ui/InChannelScreen.h[m[36m:[m[32m15[m[36m:[mclass InChannelScreen : public QWidget, public AACScreen[1;31mAdapter[m
+[35mClient/qtTeamTalk/aac/ui/InChannelScreen.h[m[36m:[m[32m20[m[36m:[m                             Backend[1;31mAdapter[m* backend,
+[35mClient/qtTeamTalk/aac/ui/InChannelScreen.h[m[36m:[m[32m23[m[36m:[m    // AACScreen[1;31mAdapter[m
+[35mClient/qtTeamTalk/aac/ui/InChannelScreen.h[m[36m:[m[32m47[m[36m:[m    Backend[1;31mAdapter[m* m_backend = nullptr;
+[35mLibrary/TeamTalkLib/myace/MyACE.h[m[36m:[m[32m40[m[36m:[m#include <ace/Timer_Queue_[1;31mAdapter[ms.h>
+[35mLibrary/TeamTalkLib/myace/MyACE.h[m[36m:[m[32m56[m[36m:[musing ActiveTimer = ACE_Thread_Timer_Queue_[1;31mAdapter[m<ACE_Timer_Heap>;

@@ -1,65 +1,170 @@
 #pragma once
 
-#include "AACScreen.h"
+#include <QWidget>
+#include <QPointer>
+#include <QStringList>
 
-#include <QMap>
-#include <QVector>
-
-class QGridLayout;
+class AACFramework;
+class AACAccessibilityManager;
+class AACInputController;
 class AACKeyButton;
+class QGridLayout;
+class QLabel;
 
-class AACKeyboardScreen : public AACScreen {
+class AACKeyboardScreen : public QWidget
+{
     Q_OBJECT
+
 public:
-    explicit AACKeyboardScreen(AACAccessibilityManager* mgr, QWidget* parent = nullptr);
+    enum KeyboardMode {
+        LettersMode,
+        NumbersMode,
+        SymbolsMode,
+        EmojiMode,
+        GridMode
+    };
+
+    explicit AACKeyboardScreen(AACFramework *framework,
+                               AACAccessibilityManager *accessibility,
+                               AACInputController *inputController,
+                               QWidget *parent = nullptr);
+
+    ~AACKeyboardScreen() override;
 
 signals:
-    void characterTyped(QChar ch);
-    void backspaceRequested();
-    void moveCursorLeft();
-    void moveCursorRight();
-    void spaceRequested();
-    void clearRequested();
-    void deleteWordRequested();
+    void characterTyped(const QString &text);
+    void backspacePressed();
+    void enterPressed();
+    void spacePressed();
+    void actionTriggered(const QString &action);
+    void modeChanged(KeyboardMode mode);
 
 public slots:
-    // Called by AACMainScreen when the text bar changes
-    void setText(const QString& text);
+    void setMode(KeyboardMode mode);
+    void updateCursorContext(int cursorPosition, const QString &text);
+    void onFreezeStateChanged(bool frozen);
+    void onHighContrastChanged(bool enabled);
 
-    // Optional: called when predictive strip updates suggestions
-    void setSuggestions(const QStringList& suggestions);
+    // Scanning
+    void onDwellTick();
+    void startRowScan();
+    void startColumnScan();
+    void activateScanTarget();
+
+private slots:
+    void handleKeyButtonActivated(const QString &text);
+    void handleBackspaceClicked();
+    void handleEnterClicked();
+    void handleSpaceClicked();
+
+    void handleModeLetters();
+    void handleModeNumbers();
+    void handleModeSymbols();
+    void handleModeEmoji();
+    void handleModeGrid();
+
+    void handleEmojiPageLeft();
+    void handleEmojiPageRight();
+
+    void updateCursorHighlight(AACKeyButton *btn);
 
 private:
-    void buildKeyboard();
-    void addRow(const QStringList& keys, int row);
-    void addControlRow(int row);
+    // UI construction
+    void buildUi();
+    void buildTopRow();
+    void buildKeyboardArea();
+    void buildControlRow();
 
-    void updateCursorHighlight();
-    void updateContextualKeys();
-    void updateScanningState();
-    void updatePredictionHints();
+    // Layout builders
+    void buildLettersLayout();
+    void buildNumbersLayout();
+    void buildSymbolsLayout();
+    void buildEmojiLayout();
+    void buildGridLayout();
 
-    void clearAllHighlights();
-    void setKeyHighlighted(QChar ch, bool on);
-    void setButtonHighlighted(AACKeyButton* btn, bool on);
+    void rebuildKeyboard();
+    void clearKeyboardLayout();
 
-    QGridLayout* m_grid = nullptr;
+    // Visual state
+    void applyVisualSettings();
+    void updateHighlightForCursor();
 
-    // Current text from AACTextBar
+    // Scanning helpers
+    void clearScanHighlight();
+    void highlightScanRow();
+    void highlightScanColumn();
+    void advanceRowScan();
+    void advanceColumnScan();
+
+    // Emoji
+    void populateEmojiPages();
+    void updateEmojiPage();
+    int emojiPageCount() const;
+
+    // Keyboard content
+    void populateLettersRows();
+    void populateNumbersRows();
+    void populateSymbolsRows();
+    void populateGridItems();
+
+private:
+    AACFramework *m_framework;
+    AACAccessibilityManager *m_accessibility;
+    AACInputController *m_inputController;
+
+    KeyboardMode m_mode;
+    bool m_frozen;
+    bool m_highContrast;
+
+    // Layout roots
+    QVBoxLayout *m_mainLayout;
+    QHBoxLayout *m_topRowLayout;
+    QVBoxLayout *m_keyboardLayout;
+    QHBoxLayout *m_controlRowLayout;
+
+    QWidget *m_topRowWidget;
+    QWidget *m_keyboardWidget;
+    QWidget *m_controlRowWidget;
+    QWidget *m_predictiveContainer;
+
+    // Mode buttons
+    AACKeyButton *m_lettersModeButton;
+    AACKeyButton *m_numbersModeButton;
+    AACKeyButton *m_symbolsModeButton;
+    AACKeyButton *m_emojiModeButton;
+    AACKeyButton *m_gridModeButton;
+
+    // Control row
+    AACKeyButton *m_spaceButton;
+    AACKeyButton *m_backspaceButton;
+    AACKeyButton *m_enterButton;
+
+    // Emoji navigation
+    QWidget *m_emojiNavWidget;
+    QHBoxLayout *m_emojiNavLayout;
+    QPushButton *m_emojiPrevPageButton;
+    QPushButton *m_emojiNextPageButton;
+    QLabel *m_emojiPageLabel;
+
+    // Keyboard grid
+    QGridLayout *m_keyboardGrid;
+
+    // Data
+    QList<QStringList> m_lettersRows;
+    QList<QStringList> m_numbersRows;
+    QList<QStringList> m_symbolsRows;
+    QList<QStringList> m_emojiPages;
+    QStringList m_gridItems;
+
+    int m_currentEmojiPage;
+    int m_cursorPosition;
     QString m_currentText;
 
-    // Current suggestions from PredictiveStrip
-    QStringList m_suggestions;
+    // Highlight tracking
+    QPointer<AACKeyButton> m_currentHighlightedButton;
 
-    // Map from character to key button (for highlighting, enabling, etc.)
-    QMap<QChar, AACKeyButton*> m_keyMap;
-
-    // Special keys
-    AACKeyButton* m_backspaceBtn = nullptr;
-    AACKeyButton* m_spaceBtn     = nullptr;
-    AACKeyButton* m_clearBtn     = nullptr;
-    AACKeyButton* m_deleteWordBtn = nullptr;
-
-    // For scanning / row/column logic
-    QVector<QVector<AACKeyButton*>> m_rows;
+    // Scanning
+    bool m_scanning = false;
+    int m_scanRow = 0;
+    int m_scanCol = -1;
 };

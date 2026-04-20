@@ -1,101 +1,116 @@
 #include "AACSymbolGridScreen.h"
+#include "AACSymbolButton.h"
+#include "AACAccessibilityManager.h"
+#include "AACFramework.h"
 
-#include <QPushButton>
+#include <QGridLayout>
+#include <QLayoutItem>
 
-AACSymbolGridScreen::AACSymbolGridScreen(AACAccessibilityManager* aac, QWidget* parent)
-    : QWidget(parent)
+AACSymbolGridScreen::AACSymbolGridScreen(AACAccessibilityManager* aac,
+                                         QWidget* parent)
+    : AACScreenBase(parent)
     , m_aac(aac)
 {
-    m_rootLayout = new QGridLayout(this);
-    m_rootLayout->setContentsMargins(8, 8, 8, 8);
-    m_rootLayout->setSpacing(8);
+    setScreenTitle("Symbols");
 
-    if (m_aac)
-        m_currentCategory = m_aac->activeCategory();
+    m_layout = new QGridLayout(this);
+    m_layout->setSpacing(12);
+    m_layout->setContentsMargins(12, 12, 12, 12);
 
     rebuildGrid();
 }
 
+// ------------------------------------------------------------
+// AACScreenAdapter overrides
+// ------------------------------------------------------------
+
 QList<QWidget*> AACSymbolGridScreen::interactiveWidgets() const
 {
-    QList<QWidget*> out;
-    for (AACButton* b : m_buttons)
-        out << b;
-    return out;
+    QList<QWidget*> widgets;
+    for (auto* b : m_buttons)
+        widgets.append(b);
+    return widgets;
 }
 
 QList<QWidget*> AACSymbolGridScreen::primaryWidgets() const
 {
-    QList<QWidget*> out;
-    for (AACButton* b : m_buttons)
-        out << b;
-    return out;
+    // For symbol grids, all buttons are primary AAC targets.
+    QList<QWidget*> widgets;
+    for (auto* b : m_buttons)
+        widgets.append(b);
+    return widgets;
 }
 
 QLayout* AACSymbolGridScreen::rootLayout() const
 {
-    return m_rootLayout;
+    return m_layout;
 }
 
-void AACSymbolGridScreen::setCategory(const QString& category)
-{
-    if (m_currentCategory == category)
-        return;
-    m_currentCategory = category;
-    rebuildGrid();
-}
+// ------------------------------------------------------------
+// Grid rebuild
+// ------------------------------------------------------------
 
 void AACSymbolGridScreen::rebuildGrid()
 {
-    // clear
+    // Clear old widgets
     QLayoutItem* item = nullptr;
-    while ((item = m_rootLayout->takeAt(0)) != nullptr) {
+    while ((item = m_layout->takeAt(0)) != nullptr) {
         if (QWidget* w = item->widget())
             w->deleteLater();
         delete item;
     }
     m_buttons.clear();
 
-    if (!m_aac || !m_aac->vocabularyManager())
+    if (!m_aac)
         return;
 
-    const auto symbols = m_aac->vocabularyManager()->symbolsForCategory(m_currentCategory);
-    int row = 0, col = 0;
-    const int maxCols = 4;
+    const QString category = m_aac->activeCategory();
+    const QVector<AACVocabItem> words = m_aac->words(category);
 
-    for (const auto& sym : symbols) {
-        QString word = sym.word; // adjust to your symbol type
+    const int columns = 4;
+    int row = 0;
+    int col = 0;
 
-        AACButton* btn = new AACButton(m_aac, this);
-        btn->setText(word);
-        btn->setDeepWell(m_aac->modes().deepWells);
+    for (const AACVocabItem& itemData : words) {
+        AACSymbolButton* btn = new AACSymbolButton(
+            itemData.label,
+            itemData.iconPath,
+            m_aac,
+            this
+        );
 
-        connect(btn, &QPushButton::clicked,
+        connect(btn, &AACSymbolButton::symbolActivated,
                 this, &AACSymbolGridScreen::onSymbolClicked);
 
-        m_rootLayout->addWidget(btn, row, col);
-        m_buttons << btn;
+        m_layout->addWidget(btn, row, col);
+        m_buttons.append(btn);
 
-        if (++col >= maxCols) {
+        col++;
+        if (col >= columns) {
             col = 0;
-            ++row;
+            row++;
         }
     }
 }
 
-void AACSymbolGridScreen::onSymbolClicked()
+// ------------------------------------------------------------
+// Symbol activation
+// ------------------------------------------------------------
+
+void AACSymbolGridScreen::onSymbolClicked(const QString& label)
 {
+    emit symbolActivated(label);
+
     if (!m_aac)
         return;
 
-    AACButton* btn = qobject_cast<AACButton*>(sender());
-    if (!btn)
-        return;
+    // Insert text into the AAC input controller
+    if (auto* ic = m_aac->inputController()) {
+        QMetaObject::invokeMethod(ic, "insertText",
+                                  Q_ARG(QString, label + " "));
+    }
 
-    const QString word = btn->text();
-
-    if (m_aac->predictionEngine())
-        m_aac->predictionEngine()->setLastSymbolWord(word);
-
-    emit symbolActivated(word);
+    // Speak the symbol
+    if (auto* se = m_aac->speechEngine())
+        se->speak(label);
 }

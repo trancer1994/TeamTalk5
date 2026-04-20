@@ -1,97 +1,90 @@
 #include "AACMainScreen.h"
 
-#include <QLabel>
-#include <QPushButton>
-#include <QAbstractItemView>
-#include <QSizePolicy>
+#include "AACKeyboardScreen.h"
+#include "AACTextBar.h"
+#include "PredictiveStrip.h"
 
-AACMainScreen::AACMainScreen(AACAccessibilityManager* aac, QWidget* parent)
-    : QWidget(parent)
+#include <QHBoxLayout>
+
+AACMainScreen::AACMainScreen(AACAccessibilityManager* aac,
+                             QWidget* parent)
+    : AACScreenBase(parent)
     , m_aac(aac)
-    , m_pred(aac ? aac->predictionEngine() : nullptr)
 {
-    // Root layout
+    setScreenTitle(tr("AAC"));
+
     m_rootLayout = new QVBoxLayout(this);
     m_rootLayout->setContentsMargins(8, 8, 8, 8);
     m_rootLayout->setSpacing(8);
 
-    // Label + text field
-    m_label = new QLabel(tr("Message:"), this);
-    m_text  = new QLineEdit(this);
-    m_text->setPlaceholderText(tr("Type or select symbols..."));
+    // Text bar
+    m_textBar = new AACTextBar(m_aac, this);
+    m_rootLayout->addWidget(m_textBar);
 
-    connect(m_text, &QLineEdit::textChanged,
+    // Keyboard screen
+    m_keyboardScreen = new AACKeyboardScreen(m_aac, this);
+    m_rootLayout->addWidget(m_keyboardScreen);
+
+    // Predictive strip
+    m_predictiveStrip = new PredictiveStrip(this);
+    m_predictiveStrip->setManager(m_aac);
+    m_predictiveStrip->setTextBar(m_textBar);
+
+    if (auto* cont = m_keyboardScreen->predictiveStripContainer()) {
+        if (!cont->layout()) {
+            auto* lay = new QHBoxLayout(cont);
+            lay->setContentsMargins(0, 0, 0, 0);
+            lay->setSpacing(4);
+        }
+        cont->layout()->addWidget(m_predictiveStrip);
+    }
+
+    // Wiring: text bar → predictive strip
+    connect(m_textBar, &AACTextBar::textChanged,
             this, &AACMainScreen::onTextChanged);
 
-    // Prediction strip container
-    m_predictiveStripContainer = new QWidget(this);
-    QHBoxLayout* stripLayout = new QHBoxLayout(m_predictiveStripContainer);
-    stripLayout->setContentsMargins(0, 0, 0, 0);
-    stripLayout->setSpacing(4);
+    // Wiring: predictive strip → text bar
+    connect(m_predictiveStrip, &PredictiveStrip::suggestionChosen,
+            this, &AACMainScreen::onSuggestionChosen);
 
-    m_predictionBar = new QListWidget(m_predictiveStripContainer);
-    m_predictionBar->setSelectionMode(QAbstractItemView::SingleSelection);
-    m_predictionBar->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    m_predictionBar->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    m_predictionBar->setWrapping(true);
-    m_predictionBar->setFlow(QListView::LeftToRight);
+    // Wiring: keyboard → text bar
+    connect(m_keyboardScreen, &AACKeyboardScreen::characterTyped,
+            this, &AACMainScreen::onCharacterTyped);
 
-    stripLayout->addWidget(m_predictionBar);
+    connect(m_keyboardScreen, &AACKeyboardScreen::backspaceRequested,
+            this, &AACMainScreen::onBackspace);
 
-    connect(m_predictionBar, &QListWidget::itemClicked,
-            this, &AACMainScreen::onPredictionClicked);
+    connect(m_keyboardScreen, &AACKeyboardScreen::spaceRequested,
+            this, &AACMainScreen::onSpace);
 
-    // Commit / delete buttons
-    QHBoxLayout* buttonLayout = new QHBoxLayout();
-    buttonLayout->setContentsMargins(0, 0, 0, 0);
-    buttonLayout->setSpacing(8);
+    connect(m_keyboardScreen, &AACKeyboardScreen::clearRequested,
+            this, &AACMainScreen::onClear);
 
-    m_commitButton = new QPushButton(tr("Speak / Send"), this);
-    m_deleteButton = new QPushButton(tr("Delete word"), this);
+    connect(m_keyboardScreen, &AACKeyboardScreen::deleteWordRequested,
+            this, &AACMainScreen::onDeleteWord);
 
-    connect(m_commitButton, &QPushButton::clicked,
-            this, &AACMainScreen::onCommitButtonClicked);
-    connect(m_deleteButton, &QPushButton::clicked,
-            this, &AACMainScreen::onDeleteButtonClicked);
+    connect(m_keyboardScreen, &AACKeyboardScreen::moveCursorLeft,
+            this, &AACMainScreen::onMoveCursorLeft);
 
-    buttonLayout->addWidget(m_commitButton);
-    buttonLayout->addWidget(m_deleteButton);
-    buttonLayout->addStretch(1);
+    connect(m_keyboardScreen, &AACKeyboardScreen::moveCursorRight,
+            this, &AACMainScreen::onMoveCursorRight);
 
-    // Assemble layout
-    m_rootLayout->addWidget(m_label);
-    m_rootLayout->addWidget(m_text);
-    m_rootLayout->addWidget(m_predictiveStripContainer);
-    m_rootLayout->addLayout(buttonLayout);
-    m_rootLayout->addStretch(1);
-
-    // Periodic tick for ignore‑timeout / decay
-    connect(&m_tickTimer, &QTimer::timeout, this, [this]() {
-        if (m_pred)
-            m_pred->tick();
-    });
-    m_tickTimer.start(250);
+connect(m_textBar, &AACTextBar::cursorMoved,
+        this, &AACMainScreen::onCursorMoved);
 }
 
-// AACScreenAdapter implementation
+// ------------------------------------------------------------
+// AACScreenAdapter
+// ------------------------------------------------------------
 
 QList<QWidget*> AACMainScreen::interactiveWidgets() const
 {
-    QList<QWidget*> out;
-    out << const_cast<QLineEdit*>(m_text);
-    out << const_cast<QListWidget*>(m_predictionBar);
-    out << const_cast<QPushButton*>(m_commitButton);
-    out << const_cast<QPushButton*>(m_deleteButton);
-    return out;
+    return { m_textBar, m_keyboardScreen };
 }
 
 QList<QWidget*> AACMainScreen::primaryWidgets() const
 {
-    QList<QWidget*> out;
-    out << const_cast<QLineEdit*>(m_text);
-    out << const_cast<QListWidget*>(m_predictionBar);
-    out << const_cast<QPushButton*>(m_commitButton);
-    return out;
+    return { m_textBar, m_keyboardScreen };
 }
 
 QLayout* AACMainScreen::rootLayout() const
@@ -99,199 +92,69 @@ QLayout* AACMainScreen::rootLayout() const
     return m_rootLayout;
 }
 
-QWidget* AACMainScreen::predictiveStripContainer() const
-{
-    return m_predictiveStripContainer;
-}
-
-// Public slots
-
-void AACMainScreen::setText(const QString& text)
-{
-    m_text->setText(text);
-}
-
-void AACMainScreen::appendWord(const QString& word)
-{
-    QString current = m_text->text();
-    if (!current.isEmpty() && !current.endsWith(' '))
-        current += ' ';
-    current += word + ' ';
-    m_text->setText(current);
-}
-
-void AACMainScreen::onPredictionDwellActivated(QWidget* w)
-{
-    if (!m_pred)
-        return;
-
-    // We expect dwell to target the prediction bar as a whole
-    if (w != m_predictionBar)
-        return;
-
-    QListWidgetItem* item = m_predictionBar->currentItem();
-    if (!item)
-        return;
-
-    const QString chosenQ = item->text();
-    const std::string chosen = chosenQ.toStdString();
-
-    const QString currentText = m_text->text();
-    QString prevWord = extractPrevWord(currentText);
-    const std::string prev = prevWord.toLower().toStdString();
-
-    std::vector<std::string> shown;
-    shown.reserve(m_predictionBar->count());
-    for (int i = 0; i < m_predictionBar->count(); ++i)
-        shown.push_back(m_predictionBar->item(i)->text().toStdString());
-
-    // Dwell-specific reinforcement
-    m_pred->reinforceDwellChoice(prev, chosen);
-    m_pred->onUserSelected(prev, chosen, shown);
-
-    QStringList parts =
-        currentText.split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
-    if (!parts.isEmpty())
-        parts.removeLast();
-    parts << chosenQ;
-
-    QString newText = parts.join(" ") + " ";
-    m_text->setText(newText);
-    emit textCommitted(newText);
-}
-
-// Helpers
-
-QString AACMainScreen::extractPrevWord(const QString& text) const
-{
-    QString trimmed = text.trimmed();
-    if (trimmed.isEmpty())
-        return QString();
-
-    const QStringList parts =
-        trimmed.split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
-    if (parts.isEmpty())
-        return QString();
-
-    return parts.last();
-}
-
-QString AACMainScreen::extractSecondLastWord(const QString& text) const
-{
-    QString trimmed = text.trimmed();
-    const QStringList parts =
-        trimmed.split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
-    if (parts.size() < 2)
-        return QString();
-    return parts[parts.size() - 2];
-}
-
-float AACMainScreen::confidenceForItem(QListWidgetItem* item) const
-{
-    if (!item || !m_pred)
-        return 0.0f;
-    const std::string token = item->text().toLower().toStdString();
-    return m_pred->confidenceFor(token); // 0.0–1.0
-}
-
-// Slots
+// ------------------------------------------------------------
+// Wiring
+// ------------------------------------------------------------
 
 void AACMainScreen::onTextChanged(const QString& text)
 {
-    if (!m_pred || !m_aac || !m_aac->predictionEnabled())
-        return;
-
-    const std::string prefix = text.toStdString();
-    auto suggestions = m_pred->Predict(prefix, 5);
-
-    m_predictionBar->clear();
-    if (!suggestions.empty()) {
-        m_pred->onPredictionBarShown();
-        for (const auto& s : suggestions) {
-            auto* item = new QListWidgetItem(QString::fromStdString(s));
-            float conf = m_pred->confidenceFor(s);
-            if (conf > 0.66f)
-                item->setForeground(QColor("#008000"));      // high confidence
-            else if (conf > 0.33f)
-                item->setForeground(QColor("#0055AA"));      // medium
-            else
-                item->setForeground(Qt::darkGray);           // low
-            m_predictionBar->addItem(item);
-        }
-    }
+    int pos = m_textBar->cursorPosition();
+    m_predictiveStrip->setContext(text.left(pos));
 }
 
-void AACMainScreen::onPredictionClicked(QListWidgetItem* item)
+void AACMainScreen::onSuggestionChosen(const QString& word)
 {
-    if (!item || !m_pred)
-        return;
-
-    const QString chosenQ = item->text();
-    const std::string chosen = chosenQ.toStdString();
-
-    const QString currentText = m_text->text();
-    QString prevWord = extractPrevWord(currentText);
-    const std::string prev = prevWord.toLower().toStdString();
-
-    std::vector<std::string> shown;
-    shown.reserve(m_predictionBar->count());
-    for (int i = 0; i < m_predictionBar->count(); ++i)
-        shown.push_back(m_predictionBar->item(i)->text().toStdString());
-
-    m_pred->reinforceChoice(prev, chosen);
-    m_pred->onUserSelected(prev, chosen, shown);
-
-    QStringList parts =
-        currentText.split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
-    if (!parts.isEmpty())
-        parts.removeLast();
-    parts << chosenQ;
-
-    QString newText = parts.join(" ") + " ";
-    m_text->setText(newText);
-    emit textCommitted(newText);
+    m_textBar->appendWord(word);
 }
 
-void AACMainScreen::onCommitButtonClicked()
+void AACMainScreen::onCharacterTyped(QChar ch)
 {
-    const QString text = m_text->text().trimmed();
-    if (text.isEmpty())
-        return;
-
-    if (m_pred && m_aac && m_aac->predictionEnabled()) {
-        QString actualWord = extractPrevWord(text);
-        QString prevWord   = extractSecondLastWord(text);
-
-        const std::string actual = actualWord.toLower().toStdString();
-        const std::string prev   = prevWord.toLower().toStdString();
-
-        std::vector<std::string> shown;
-        shown.reserve(m_predictionBar->count());
-        for (int i = 0; i < m_predictionBar->count(); ++i)
-            shown.push_back(m_predictionBar->item(i)->text().toStdString());
-
-        if (!actual.empty())
-            m_pred->penalizeIgnored(prev, shown, actual);
-    }
-
-    emit textCommitted(text);
+    m_textBar->insertCharacter(ch);
 }
 
-void AACMainScreen::onDeleteButtonClicked()
+void AACMainScreen::onBackspace()
 {
-    QString current = m_text->text();
-    QString prevWord = extractPrevWord(current);
-    if (prevWord.isEmpty())
-        return;
+    m_textBar->backspace();
+}
 
-    if (m_pred)
-        m_pred->onUserDeletedAutocompleted(prevWord.toLower().toStdString());
+void AACMainScreen::onSpace()
+{
+    m_textBar->insertSpace();
+}
 
-    QString trimmed = current.trimmed();
-    QStringList parts =
-        trimmed.split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
-    if (!parts.isEmpty())
-        parts.removeLast();
+void AACMainScreen::onClear()
+{
+    m_textBar->setText(QString());
+}
 
-    m_text->setText(parts.join(" ") + (parts.isEmpty() ? "" : " "));
+void AACMainScreen::onDeleteWord()
+{
+    QString t = m_textBar->text();
+    t = t.trimmed();
+    int last = t.lastIndexOf(' ');
+    if (last >= 0)
+        t = t.left(last);
+    else
+        t.clear();
+    m_textBar->setText(t);
+}
+
+void AACMainScreen::onMoveCursorLeft()
+{
+    m_textBar->moveCursorLeft();
+}
+
+void AACMainScreen::onMoveCursorRight()
+{
+    m_textBar->moveCursorRight();
+}
+void AACMainScreen::onCursorMoved(int pos)
+{
+    const QString text = m_textBar->text();
+
+    // Prefix up to cursor → prediction context
+    const QString prefix = text.left(pos);
+
+    m_predictiveStrip->setContext(prefix);
+    m_keyboardScreen->setText(prefix);
 }

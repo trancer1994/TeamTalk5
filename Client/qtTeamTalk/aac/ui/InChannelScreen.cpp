@@ -9,10 +9,13 @@
 InChannelScreen::InChannelScreen(AACAccessibilityManager* aac,
                                  BackendAdapter* backend,
                                  QWidget* parent)
-    : QWidget(parent)
+    : AACScreenBase(parent)
     , m_aac(aac)
     , m_backend(backend)
 {
+    // Initial fallback title (replaced when channel name arrives)
+    setScreenTitle("Channel");
+
     m_rootLayout = new QVBoxLayout(this);
     m_rootLayout->setContentsMargins(8, 8, 8, 8);
     m_rootLayout->setSpacing(8);
@@ -73,19 +76,26 @@ QWidget* InChannelScreen::predictiveStripContainer() const
 
 void InChannelScreen::setChannelName(const QString& name)
 {
-    m_channelLabel->setText(tr("Channel: %1").arg(name));
+    const QString trimmed = name.trimmed();
+
+    if (trimmed.isEmpty()) {
+        m_channelLabel->setText(tr("Channel"));
+        setScreenTitle("Channel");
+        return;
+    }
+
+    m_channelLabel->setText(tr("Channel: %1").arg(trimmed));
+    setScreenTitle(trimmed);
 }
 
 void InChannelScreen::updateSelfVoiceState(const SelfVoiceState& state)
 {
     Q_UNUSED(state);
-    // hook for visual feedback if desired
 }
 
 void InChannelScreen::updateOtherUserVoiceState(const OtherUserVoiceEvent& event)
 {
     Q_UNUSED(event);
-    // hook for visual feedback if desired
 }
 
 void InChannelScreen::setEventMessage(const QString& msg)

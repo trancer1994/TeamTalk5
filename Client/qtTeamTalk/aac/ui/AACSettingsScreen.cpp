@@ -1,243 +1,334 @@
-#include "AACSpeechSettingsScreen.h"
+#include "AACSettingsScreen.h"
+#include "AACAccessibilityManager.h"
+#include "AACButton.h"
+#include "AACToggle.h"
+#include "AACFramework.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QComboBox>
 #include <QSlider>
-#include <QCheckBox>
-#include <QPushButton>
 #include <QLabel>
-#include <QGroupBox>
-#include <QTextToSpeech>
-#include <QLocale>
 
-AACSpeechSettingsScreen::AACSpeechSettingsScreen(AACAccessibilityManager* aac, QWidget* parent)
-    : AACScreen(aac, parent)
+AACSettingsScreen::AACSettingsScreen(AACAccessibilityManager* aac,
+                                     QWidget* parent)
+    : AACScreenBase(parent)
+    , m_aac(aac)
 {
-    auto* layout = new QVBoxLayout(this);
+    setScreenTitle(tr("AAC Settings"));
 
-    // -------------------------
-    // BASIC SECTION
-    // -------------------------
-    layout->addWidget(new QLabel(tr("Voice"), this));
-    m_voiceSelector = new QComboBox(this);
-    layout->addWidget(m_voiceSelector);
+    m_rootLayout = new QVBoxLayout();
+    m_rootLayout->setContentsMargins(12, 12, 12, 12);
+    m_rootLayout->setSpacing(12);
 
-    // Local TTS for voice enumeration
-    auto* tts = new QTextToSpeech(this);
-    const auto voices = tts->availableVoices();
-
-    // Group voices by language
-    QMap<QString, QList<QPair<QString, QString>>> voicesByLang;
-    for (const QVoice& v : voices) {
-        const QLocale loc = v.locale();
-        const QString lang = QLocale::languageToString(loc.language());
-        QString label = QStringLiteral("%1 (%2)")
-            .arg(v.name())
-            .arg(loc.nativeLanguageName());
-        voicesByLang[lang].append({label, v.name()});
-    }
-
-    for (auto it = voicesByLang.cbegin(); it != voicesByLang.cend(); ++it) {
-        m_voiceSelector->insertSeparator(m_voiceSelector->count());
-        m_voiceSelector->addItem(QStringLiteral("— %1 —").arg(it.key()));
-        int headerIndex = m_voiceSelector->count() - 1;
-        m_voiceSelector->setItemData(headerIndex, true, Qt::UserRole + 1);
-
-        for (const auto& pair : it.value()) {
-            m_voiceSelector->addItem(pair.first, pair.second);
-        }
-    }
-
-    // Presets
-    layout->addWidget(new QLabel(tr("Voice preset"), this));
-    m_presetBox = new QComboBox(this);
-    m_presetBox->addItem(tr("None"), AACSpeechConfig::PresetNone);
-    m_presetBox->addItem(tr("Soft"), AACSpeechConfig::PresetSoft);
-    m_presetBox->addItem(tr("Clear"), AACSpeechConfig::PresetClear);
-    m_presetBox->addItem(tr("Fast"), AACSpeechConfig::PresetFast);
-    m_presetBox->addItem(tr("Calm"), AACSpeechConfig::PresetCalm);
-    layout->addWidget(m_presetBox);
-
-    // Rate
-    layout->addWidget(new QLabel(tr("Rate"), this));
-    m_rateSlider = new QSlider(Qt::Horizontal, this);
-    m_rateSlider->setRange(-100, 100);
-    layout->addWidget(m_rateSlider);
-
-    // Pitch
-    layout->addWidget(new QLabel(tr("Pitch"), this));
-    m_pitchSlider = new QSlider(Qt::Horizontal, this);
-    m_pitchSlider->setRange(0, 200);
-    layout->addWidget(m_pitchSlider);
-
-    // Volume
-    layout->addWidget(new QLabel(tr("Volume"), this));
-    m_volumeSlider = new QSlider(Qt::Horizontal, this);
-    m_volumeSlider->setRange(0, 100);
-    layout->addWidget(m_volumeSlider);
-
-    // Speak-as-you-type
-    layout->addWidget(new QLabel(tr("Speak as you type"), this));
-    m_sayAsType = new QComboBox(this);
-    m_sayAsType->addItem(tr("None"), AACSpeechConfig::SpeakNone);
-    m_sayAsType->addItem(tr("Letters"), AACSpeechConfig::SpeakLetters);
-    m_sayAsType->addItem(tr("Words"), AACSpeechConfig::SpeakWords);
-    m_sayAsType->addItem(tr("Phrases"), AACSpeechConfig::SpeakPhrases);
-    layout->addWidget(m_sayAsType);
-
-    // Test sentence
-    layout->addWidget(new QLabel(tr("Test sentence"), this));
-    m_testSentenceBox = new QComboBox(this);
-    m_testSentenceBox->addItem(tr("This is my voice."));
-    m_testSentenceBox->addItem(tr("Hello."));
-    m_testSentenceBox->addItem(tr("I need help."));
-    m_testSentenceBox->addItem(tr("Please wait."));
-    layout->addWidget(m_testSentenceBox);
-
-    // -------------------------
-    // ADVANCED SECTION
-    // -------------------------
-    auto* advancedBox = new QGroupBox(tr("Advanced settings"), this);
-    advancedBox->setCheckable(true);
-    advancedBox->setChecked(false);
-    auto* advLayout = new QVBoxLayout();
-
-    m_echoOnSend = new QCheckBox(tr("Echo message on send"), advancedBox);
-    m_preTone    = new QCheckBox(tr("Play pre-tone before speech"), advancedBox);
-    m_highIntelligible = new QCheckBox(tr("High intelligibility mode"), advancedBox);
-    m_lowIntensity     = new QCheckBox(tr("Low intensity mode"), advancedBox);
-
-    advLayout->addWidget(m_echoOnSend);
-    advLayout->addWidget(m_preTone);
-    advLayout->addWidget(m_highIntelligible);
-    advLayout->addWidget(m_lowIntensity);
-    advancedBox->setLayout(advLayout);
-    layout->addWidget(advancedBox);
-
-    // -------------------------
-    // EXPERT SECTION
-    // -------------------------
-    m_showExpertToggle = new QCheckBox(tr("Show expert voice controls"), this);
-    layout->addWidget(m_showExpertToggle);
-
-    m_expertGroup = new QGroupBox(tr("Expert controls"), this);
-    m_expertGroup->setVisible(false);
-    auto* expertLayout = new QVBoxLayout();
-    expertLayout->addWidget(new QLabel(tr("Reserved for future SSML / per-symbol / per-category controls."), m_expertGroup));
-    m_expertGroup->setLayout(expertLayout);
-    layout->addWidget(m_expertGroup);
-
-    // -------------------------
-    // COMMON BUTTONS
-    // -------------------------
-    m_previewButton = new QPushButton(tr("Preview voice"), this);
-    layout->addWidget(m_previewButton);
-
-    m_restoreDefaultsButton = new QPushButton(tr("Restore Voice Defaults"), this);
-    layout->addWidget(m_restoreDefaultsButton);
-
-    m_backButton = new QPushButton(tr("Back"), this);
-    layout->addWidget(m_backButton);
-
-    // -------------------------
-    // INITIALISE FROM CONFIG
-    // -------------------------
-    if (m_aac) {
-        const AACSpeechConfig cfg = m_aac->speechConfig();
-
-        int idx = m_voiceSelector->findData(cfg.voiceName);
-        if (idx >= 0)
-            m_voiceSelector->setCurrentIndex(idx);
-
-        m_presetBox->setCurrentIndex(m_presetBox->findData(int(cfg.preset)));
-        m_rateSlider->setValue(int(cfg.rate * 100.0));
-        m_pitchSlider->setValue(int(cfg.pitch * 100.0));
-        m_volumeSlider->setValue(int(cfg.volume * 100.0));
-
-        m_sayAsType->setCurrentIndex(m_sayAsType->findData(int(cfg.speakAsYouTypeMode)));
-
-        m_echoOnSend->setChecked(cfg.echoOnSend);
-        m_preTone->setChecked(cfg.playPreTone);
-        m_highIntelligible->setChecked(cfg.highIntelligible);
-        m_lowIntensity->setChecked(cfg.lowIntensity);
-    }
-
-    // -------------------------
-    // CONNECTIONS
-    // -------------------------
-    connect(m_previewButton, &QPushButton::clicked,
-            this, &AACSpeechSettingsScreen::previewVoice);
-
-    connect(m_restoreDefaultsButton, &QPushButton::clicked, this, [this]() {
-        AACSpeechConfig cfg;
-        m_aac->setSpeechConfig(cfg);
-    });
-
-    connect(m_backButton, &QPushButton::clicked,
-            this, &AACSpeechSettingsScreen::backRequested);
-
-    connect(m_voiceSelector, &QComboBox::currentIndexChanged,
-            this, &AACSpeechSettingsScreen::applyToManager);
-    connect(m_presetBox, &QComboBox::currentIndexChanged,
-            this, &AACSpeechSettingsScreen::applyToManager);
-    connect(m_rateSlider, &QSlider::valueChanged,
-            this, &AACSpeechSettingsScreen::applyToManager);
-    connect(m_pitchSlider, &QSlider::valueChanged,
-            this, &AACSpeechSettingsScreen::applyToManager);
-    connect(m_volumeSlider, &QSlider::valueChanged,
-            this, &AACSpeechSettingsScreen::applyToManager);
-    connect(m_sayAsType, &QComboBox::currentIndexChanged,
-            this, &AACSpeechSettingsScreen::applyToManager);
-
-    connect(m_echoOnSend, &QCheckBox::toggled,
-            this, &AACSpeechSettingsScreen::applyToManager);
-    connect(m_preTone, &QCheckBox::toggled,
-            this, &AACSpeechSettingsScreen::applyToManager);
-    connect(m_highIntelligible, &QCheckBox::toggled,
-            this, &AACSpeechSettingsScreen::applyToManager);
-    connect(m_lowIntensity, &QCheckBox::toggled,
-            this, &AACSpeechSettingsScreen::applyToManager);
-
-    connect(m_showExpertToggle, &QCheckBox::toggled,
-            this, &AACSpeechSettingsScreen::toggleExpert);
+    buildUI();
+    syncFromManager();
 }
 
-void AACSpeechSettingsScreen::applyToManager()
+// ------------------------------------------------------------
+// AACScreenAdapter overrides
+// ------------------------------------------------------------
+
+QList<QWidget*> AACSettingsScreen::interactiveWidgets() const
+{
+    return m_interactive;
+}
+
+QList<QWidget*> AACSettingsScreen::primaryWidgets() const
+{
+    // All toggles and preset buttons are primary AAC targets.
+    return m_interactive;
+}
+
+QLayout* AACSettingsScreen::rootLayout() const
+{
+    return m_rootLayout;
+}
+
+// ------------------------------------------------------------
+// UI construction
+// ------------------------------------------------------------
+
+void AACSettingsScreen::buildUI()
+{
+    // Core access section
+    auto* accessLabel = new QLabel(tr("Access"), this);
+    m_rootLayout->addWidget(accessLabel);
+
+    m_largeTargets = new AACToggle(tr("Large targets"), this);
+    m_dwell        = new AACToggle(tr("Dwell"), this);
+    m_scanning     = new AACToggle(tr("Scanning"), this);
+    m_oneHand      = new AACToggle(tr("One-hand mode"), this);
+    m_ultraMinimal = new AACToggle(tr("Ultra-minimal mode"), this);
+
+    m_rootLayout->addWidget(m_largeTargets);
+    m_rootLayout->addWidget(m_dwell);
+    m_rootLayout->addWidget(m_scanning);
+    m_rootLayout->addWidget(m_oneHand);
+    m_rootLayout->addWidget(m_ultraMinimal);
+
+    // One-hand side
+    auto* oneHandRow = new QHBoxLayout();
+    oneHandRow->addWidget(new QLabel(tr("One-hand side"), this));
+    m_oneHandSide = new QComboBox(this);
+    m_oneHandSide->addItem(tr("Left"), 0);
+    m_oneHandSide->addItem(tr("Right"), 1);
+    oneHandRow->addWidget(m_oneHandSide);
+    m_rootLayout->addLayout(oneHandRow);
+
+    // Layout section
+    auto* layoutLabel = new QLabel(tr("Layout"), this);
+    m_rootLayout->addWidget(layoutLabel);
+
+    auto* gridRow = new QHBoxLayout();
+    gridRow->addWidget(new QLabel(tr("Grid size"), this));
+    m_gridSize = new QComboBox(this);
+    m_gridSize->addItem(tr("Large"), 0);
+    m_gridSize->addItem(tr("Medium"), 1);
+    m_gridSize->addItem(tr("Dense"), 2);
+    gridRow->addWidget(m_gridSize);
+    m_rootLayout->addLayout(gridRow);
+
+    // Feedback section
+    auto* feedbackLabel = new QLabel(tr("Feedback"), this);
+    m_rootLayout->addWidget(feedbackLabel);
+
+    m_auditory = new AACToggle(tr("Auditory feedback"), this);
+    m_haptics  = new AACToggle(tr("Haptic feedback"), this);
+    m_rootLayout->addWidget(m_auditory);
+    m_rootLayout->addWidget(m_haptics);
+
+    auto* highlightRow = new QHBoxLayout();
+    highlightRow->addWidget(new QLabel(tr("Highlight style"), this));
+    m_highlightStyle = new QComboBox(this);
+    m_highlightStyle->addItem(tr("Ring"), 0);
+    m_highlightStyle->addItem(tr("Glow"), 1);
+    m_highlightStyle->addItem(tr("High contrast"), 2);
+    m_highlightStyle->addItem(tr("Invert"), 3);
+    highlightRow->addWidget(m_highlightStyle);
+    m_rootLayout->addLayout(highlightRow);
+
+    // Prediction section
+    auto* predictionLabel = new QLabel(tr("Prediction"), this);
+    m_rootLayout->addWidget(predictionLabel);
+
+    m_predictive = new AACToggle(tr("Predictive strip"), this);
+    m_rootLayout->addWidget(m_predictive);
+
+    // Scanning / touch timing
+    auto* timingLabel = new QLabel(tr("Timing"), this);
+    m_rootLayout->addWidget(timingLabel);
+
+    auto* scanRow = new QHBoxLayout();
+    scanRow->addWidget(new QLabel(tr("Scanning speed"), this));
+    m_scanningSpeed = new QSlider(Qt::Horizontal, this);
+    m_scanningSpeed->setRange(1, 10); // abstract units
+    scanRow->addWidget(m_scanningSpeed);
+    m_rootLayout->addLayout(scanRow);
+
+    auto* holdRow = new QHBoxLayout();
+    holdRow->addWidget(new QLabel(tr("Touch hold delay"), this));
+    m_touchHoldDelay = new QSlider(Qt::Horizontal, this);
+    m_touchHoldDelay->setRange(0, 2000); // ms
+    holdRow->addWidget(m_touchHoldDelay);
+    m_rootLayout->addLayout(holdRow);
+
+    // Presets
+    auto* presetLabel = new QLabel(tr("Presets"), this);
+    m_rootLayout->addWidget(presetLabel);
+
+    m_presetTouch        = new AACButton(tr("Touch"), this);
+    m_presetEyeGaze      = new AACButton(tr("Eye-gaze"), this);
+    m_presetSwitch       = new AACButton(tr("Switch"), this);
+    m_presetCognitiveLow = new AACButton(tr("Cognitive-low"), this);
+    m_presetRecommended  = new AACButton(tr("Recommended"), this);
+
+    m_rootLayout->addWidget(m_presetTouch);
+    m_rootLayout->addWidget(m_presetEyeGaze);
+    m_rootLayout->addWidget(m_presetSwitch);
+    m_rootLayout->addWidget(m_presetCognitiveLow);
+    m_rootLayout->addWidget(m_presetRecommended);
+
+    // Buttons
+    m_resetButton          = new AACButton(tr("Reset to defaults"), this);
+    m_speechSettingsButton = new AACButton(tr("Speech settings…"), this);
+    m_backButton           = new AACButton(tr("Back"), this);
+
+    m_rootLayout->addWidget(m_resetButton);
+    m_rootLayout->addWidget(m_speechSettingsButton);
+    m_rootLayout->addWidget(m_backButton);
+
+    // Interactive list
+    m_interactive = {
+        m_largeTargets, m_dwell, m_scanning, m_auditory, m_haptics,
+        m_ultraMinimal, m_oneHand, m_predictive,
+        m_gridSize, m_highlightStyle,
+        m_scanningSpeed, m_touchHoldDelay,
+        m_oneHandSide,
+        m_presetTouch, m_presetEyeGaze, m_presetSwitch,
+        m_presetCognitiveLow, m_presetRecommended,
+        m_resetButton, m_speechSettingsButton, m_backButton
+    };
+
+    // Connections
+    connect(m_largeTargets, &AACToggle::toggled, this, &AACSettingsScreen::applyToManager);
+    connect(m_dwell,        &AACToggle::toggled, this, &AACSettingsScreen::applyToManager);
+    connect(m_scanning,     &AACToggle::toggled, this, &AACSettingsScreen::applyToManager);
+    connect(m_auditory,     &AACToggle::toggled, this, &AACSettingsScreen::applyToManager);
+    connect(m_haptics,      &AACToggle::toggled, this, &AACSettingsScreen::applyToManager);
+    connect(m_ultraMinimal, &AACToggle::toggled, this, &AACSettingsScreen::applyToManager);
+    connect(m_oneHand,      &AACToggle::toggled, this, &AACSettingsScreen::applyToManager);
+    connect(m_predictive,   &AACToggle::toggled, this, &AACSettingsScreen::applyToManager);
+
+    connect(m_gridSize,       &QComboBox::currentIndexChanged, this, &AACSettingsScreen::onGridSizeChanged);
+    connect(m_highlightStyle, &QComboBox::currentIndexChanged, this, &AACSettingsScreen::onHighlightStyleChanged);
+    connect(m_scanningSpeed,  &QSlider::valueChanged,          this, &AACSettingsScreen::onScanningSpeedChanged);
+    connect(m_touchHoldDelay, &QSlider::valueChanged,          this, &AACSettingsScreen::onTouchHoldDelayChanged);
+    connect(m_oneHandSide,    &QComboBox::currentIndexChanged, this, &AACSettingsScreen::applyToManager);
+
+    connect(m_presetTouch,        &AACButton::clicked, this, &AACSettingsScreen::applyPresetTouch);
+    connect(m_presetEyeGaze,      &AACButton::clicked, this, &AACSettingsScreen::applyPresetEyeGaze);
+    connect(m_presetSwitch,       &AACButton::clicked, this, &AACSettingsScreen::applyPresetSwitch);
+    connect(m_presetCognitiveLow, &AACButton::clicked, this, &AACSettingsScreen::applyPresetCognitiveLow);
+    connect(m_presetRecommended,  &AACButton::clicked, this, &AACSettingsScreen::applyRecommendedDefaults);
+
+    connect(m_resetButton, &AACButton::clicked, this, &AACSettingsScreen::applyRecommendedDefaults);
+
+    connect(m_speechSettingsButton, &AACButton::clicked,
+            this, &AACSettingsScreen::speechSettingsRequested);
+
+    connect(m_backButton, &AACButton::clicked,
+            this, &AACSettingsScreen::backRequested);
+}
+
+// ------------------------------------------------------------
+// Sync with manager
+// ------------------------------------------------------------
+
+void AACSettingsScreen::syncFromManager()
 {
     if (!m_aac)
         return;
 
-    AACSpeechConfig cfg = m_aac->speechConfig();
+    const AACModeFlags modes = m_aac->modes();
+    onModesChanged(modes);
 
-    cfg.voiceName = m_voiceSelector->currentData().toString();
-    cfg.preset = static_cast<AACSpeechConfig::Preset>(m_presetBox->currentData().toInt());
-    cfg.rate   = m_rateSlider->value() / 100.0;
-    cfg.pitch  = m_pitchSlider->value() / 100.0;
-    cfg.volume = m_volumeSlider->value() / 100.0;
+    // Grid size, highlight style, scanning speed, touch hold delay, one-hand side
+    // are assumed to be stored in AACAccessibilityManager or related config.
+    // Here we just sketch the pattern; you’ll wire to your real fields.
 
-    cfg.speakAsYouTypeMode =
-        static_cast<AACSpeechConfig::SpeakAsYouTypeMode>(m_sayAsType->currentData().toInt());
-
-    cfg.echoOnSend       = m_echoOnSend->isChecked();
-    cfg.playPreTone      = m_preTone->isChecked();
-    cfg.highIntelligible = m_highIntelligible->isChecked();
-    cfg.lowIntensity     = m_lowIntensity->isChecked();
-
-    m_aac->setSpeechConfig(cfg);
+    // Example:
+    // m_gridSize->setCurrentIndex(m_aac->gridSize());
+    // m_highlightStyle->setCurrentIndex(m_aac->highlightStyle());
+    // m_scanningSpeed->setValue(m_aac->scanningSpeed());
+    // m_touchHoldDelay->setValue(m_aac->touchHoldDelayMs());
+    // m_oneHandSide->setCurrentIndex(m_aac->oneHandSide());
 }
 
-void AACSpeechSettingsScreen::previewVoice()
+void AACSettingsScreen::onModesChanged(const AACModeFlags& modes)
 {
-    if (!m_aac || !m_aac->speechEngine())
+    m_largeTargets->setChecked(modes.largeTargets);
+    m_dwell->setChecked(modes.dwell);
+    m_scanning->setChecked(modes.scanning);
+    m_auditory->setChecked(modes.auditoryFeedback);
+    m_haptics->setChecked(modes.haptics);
+    m_ultraMinimal->setChecked(modes.ultraMinimal);
+    m_oneHand->setChecked(modes.oneHand);
+    m_predictive->setChecked(modes.predictiveStrip);
+}
+
+void AACSettingsScreen::applyToManager()
+{
+    if (!m_aac)
         return;
 
-    applyToManager();
-    m_aac->speechEngine()->speak(m_testSentenceBox->currentText());
+    AACModeFlags modes = m_aac->modes();
+    modes.largeTargets     = m_largeTargets->isChecked();
+    modes.dwell            = m_dwell->isChecked();
+    modes.scanning         = m_scanning->isChecked();
+    modes.auditoryFeedback = m_auditory->isChecked();
+    modes.haptics          = m_haptics->isChecked();
+    modes.ultraMinimal     = m_ultraMinimal->isChecked();
+    modes.oneHand          = m_oneHand->isChecked();
+    modes.predictiveStrip  = m_predictive->isChecked();
+
+    m_aac->setModes(modes);
+
+    // Grid size, highlight style, scanning speed, touch hold delay, one-hand side
+    // should also be pushed into your manager here.
 }
 
-void AACSpeechSettingsScreen::toggleExpert(bool enabled)
+void AACSettingsScreen::applyPreset(const AACModeFlags& modes)
 {
-    if (m_expertGroup)
-        m_expertGroup->setVisible(enabled);
+    if (!m_aac)
+        return;
+
+    m_aac->setModes(modes);
+    onModesChanged(modes);
+}
+
+void AACSettingsScreen::applyRecommendedDefaults()
+{
+    if (!m_aac)
+        return;
+
+    AACModeFlags modes;
+    // Fill with your recommended defaults.
+    applyPreset(modes);
+}
+
+void AACSettingsScreen::applyPresetTouch()
+{
+    AACModeFlags modes;
+    // Configure for touch: large targets, no scanning, etc.
+    applyPreset(modes);
+}
+
+void AACSettingsScreen::applyPresetEyeGaze()
+{
+    AACModeFlags modes;
+    // Configure for eye-gaze: dwell, large targets, etc.
+    applyPreset(modes);
+}
+
+void AACSettingsScreen::applyPresetSwitch()
+{
+    AACModeFlags modes;
+    // Configure for switch scanning.
+    applyPreset(modes);
+}
+
+void AACSettingsScreen::applyPresetCognitiveLow()
+{
+    AACModeFlags modes;
+    // Configure for cognitive-low: ultra-minimal, reduced features.
+    applyPreset(modes);
+}
+
+// ------------------------------------------------------------
+// Extra controls
+// ------------------------------------------------------------
+
+void AACSettingsScreen::onGridSizeChanged(int index)
+{
+    Q_UNUSED(index);
+    applyToManager();
+}
+
+void AACSettingsScreen::onHighlightStyleChanged(int index)
+{
+    Q_UNUSED(index);
+    applyToManager();
+}
+
+void AACSettingsScreen::onScanningSpeedChanged(int value)
+{
+    Q_UNUSED(value);
+    applyToManager();
+}
+
+void AACSettingsScreen::onTouchHoldDelayChanged(int value)
+{
+    Q_UNUSED(value);
+    applyToManager();
 }

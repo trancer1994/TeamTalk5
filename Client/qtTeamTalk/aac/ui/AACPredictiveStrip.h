@@ -21,10 +21,7 @@ public:
     void setTextBar(AACTextBar* tb);
 
 public slots:
-    // Core logic: called when the text bar changes
     void setContext(const QString& text);
-
-    // Optional logic: called when the keyboard emits characterTyped()
     void onCharacterTyped(const QString& ch);
 
 signals:
@@ -35,7 +32,8 @@ private slots:
 
 private:
     void updateButtons(const std::vector<std::string>& suggestions);
-    void animateButtonIn(AACButton* btn);
+    void applyAACProperties(AACButton* btn);
+    void applyConfidenceStyling(AACButton* btn, float conf);
     void applyAdaptiveSizing(AACButton* btn);
 
     AACAccessibilityManager* m_mgr = nullptr;

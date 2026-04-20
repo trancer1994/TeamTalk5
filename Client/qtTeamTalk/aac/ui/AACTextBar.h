@@ -31,6 +31,7 @@ public:
     void appendWord(const QString& word);
 
 signals:
+    void cursorMoved(int position);
     void textChanged(const QString& text);
     void speakRequested(const QString& text);
     void stopRequested();

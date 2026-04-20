@@ -73,6 +73,13 @@ void AACAccessibilityManager::attachToAppLifecycle(QObject* app)
     connect(app, SIGNAL(aboutToQuit()),
             this, SLOT(persist()));
 }
+void AACAccessibilityManager::setKeyboardScanningLayout(
+        const QVector<QVector<QWidget*>>& layout)
+{
+    m_keyboardScanningLayout = layout;
+    emit keyboardScanningLayoutChanged(m_keyboardScanningLayout);
+}
+
 QStringList AACAccessibilityManager::categories() const
 {
     return m_vocabularyManager ? m_vocabularyManager->categories()
@@ -124,6 +131,20 @@ bool AACAccessibilityManager::predictionEnabled() const
     return m_predictionEnabled;
 }
 
+bool AACAccessibilityManager::largeTargetsEnabled() const
+{
+    return m_modes.largeTargets;
+}
+
+bool AACAccessibilityManager::highContrastEnabled() const
+{
+    return m_modes.highContrast;
+}
+
+bool AACAccessibilityManager::dwellEnabled() const
+{
+    return m_modes.dwell;
+}
 AACInputController* AACAccessibilityManager::inputController() const
 {
     return m_inputController;
@@ -429,8 +450,33 @@ AACInputController::AACInputController(AACAccessibilityManager* mgr, QObject* pa
 
     connect(&m_scanningTimer, &QTimer::timeout,
             this, &AACInputController::onScanningTick);
+
+    if (m_mgr) {
+    QObject::connect(m_mgr, &AACAccessibilityManager::keyboardScanningLayoutChanged,
+                     this, &AACInputController::onKeyboardScanningLayoutChanged);
+}
 }
 
+void AACInputController::onKeyboardScanningLayoutChanged(
+        const QVector<QVector<QWidget*>>& layout)
+{
+    m_scanningWidgets.clear();
+
+    // Flatten row/column layout into a linear scanning list
+    for (const auto& row : layout) {
+        for (QWidget* w : row) {
+            if (w)
+                m_scanningWidgets.append(QPointer<QWidget>(w));
+        }
+    }
+
+    // Reset scanning index
+    m_scanningIndex = m_scanningWidgets.isEmpty() ? -1 : 0;
+
+    // Focus the first widget if available
+    if (!m_scanningWidgets.isEmpty())
+        focusWidget(m_scanningWidgets.first());
+}
 void AACInputController::attachScreen(AACScreenAdapter* screen)
 {
     m_currentScreen = screen;
@@ -671,7 +717,7 @@ bool AACButton::isDeepWell() const
 
 void AACButton::setDwellProgress(float p)
 {
-    m_dwellProgress = p;
+    m_dwellProgress = qBound(0.0f, p, 1.0f);
     update();
 }
 
@@ -705,23 +751,52 @@ void AACButton::mousePressEvent(QMouseEvent* e)
 
 void AACButton::paintEvent(QPaintEvent* e)
 {
+    // Draw the normal QPushButton first
     QPushButton::paintEvent(e);
-
-    if (m_dwellProgress <= 0.0f)
-        return;
 
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing, true);
 
-    QRectF r = rect().adjusted(4, 4, -4, -4);
-    QPen pen(QColor("#00AEEF"));
-    pen.setWidth(4);
-    p.setPen(pen);
-    p.setBrush(Qt::NoBrush);
+    const bool highContrast = property("aacHighContrast").toBool();
+    const bool dwellEnabled = property("aacDwellEnabled").toBool();
+    const bool highlighted  = property("aacHighlighted").toBool();
 
-    int startAngle = 90 * 16;
-    int spanAngle = -int(360 * 16 * m_dwellProgress);
-    p.drawArc(r, startAngle, spanAngle);
+    QRect r = rect().adjusted(2, 2, -2, -2);
+
+    // High contrast overlay
+    if (highContrast) {
+        p.save();
+        p.setBrush(QColor(0, 0, 0, 160));
+        p.setPen(Qt::NoPen);
+        p.drawRoundedRect(r, 6, 6);
+        p.restore();
+    }
+
+    // Highlight ring (prediction / cursor)
+    if (highlighted) {
+        p.save();
+        QPen pen(QColor(255, 193, 7)); // amber
+        pen.setWidth(3);
+        p.setPen(pen);
+        p.setBrush(Qt::NoBrush);
+        p.drawRoundedRect(r, 6, 6);
+        p.restore();
+    }
+
+    // Dwell progress arc
+    if (dwellEnabled && m_dwellProgress > 0.0f) {
+        p.save();
+        QPen pen(QColor(0, 120, 215)); // blue
+        pen.setWidth(3);
+        p.setPen(pen);
+        p.setBrush(Qt::NoBrush);
+
+        const int startAngle = 90 * 16;
+        const int spanAngle  = -static_cast<int>(360 * 16 * m_dwellProgress);
+        QRect arcRect = r.adjusted(3, 3, -3, -3);
+        p.drawArc(arcRect, startAngle, spanAngle);
+        p.restore();
+    }
 }
 
 AACSpeechEngine::AACSpeechEngine(AACAccessibilityManager* mgr, QObject* parent)

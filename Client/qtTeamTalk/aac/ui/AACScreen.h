@@ -5,7 +5,7 @@
 #include <QList>
 #include <QEvent>
 
-#include "aac/aac/AACFramework.h"
+#include "aac/AACFramework.h"
 
 // Base class for all AAC-aware screens.
 // Acts as an adapter to the AAC framework.

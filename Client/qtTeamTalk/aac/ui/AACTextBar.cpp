@@ -70,6 +70,8 @@ void AACTextBar::buildUi() {
 }
 
 void AACTextBar::connectSignals() {
+    connect(m_edit, &QLineEdit::cursorPositionChanged,
+        this, &AACTextBar::cursorMoved);
     connect(m_speakBtn, &QPushButton::clicked, this, &AACTextBar::onSpeak);
     connect(m_stopBtn, &QPushButton::clicked, this, &AACTextBar::onStop);
 
