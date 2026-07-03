@@ -20,6 +20,8 @@ void StateMachine::onConnectRequested(const QString& host, int port)
     if (!m_backend)
         return;
 
+m_reconnectInProgress = false;
+
     // Update internal state
     m_state.connectionState = ConnectionState::Connecting;
     emit connectionStateChanged(ConnectionState::Connecting);
@@ -119,6 +121,9 @@ void StateMachine::onConnectionStateChanged(ConnectionState state)
     //
     if (state == ConnectionState::Connected) {
 
+    m_reconnectInProgress = false;
+    emit reconnectStopped();           // ⭐ UI hides spinner
+
         // Stop any pending reconnect attempts
         m_reconnectAttempts = 0;
         if (m_reconnectTimer->isActive())
@@ -145,7 +150,17 @@ void StateMachine::onConnectionStateChanged(ConnectionState state)
         m_state.currentChannelId = -1;
         emit channelChanged(-1);
 
+    // ⭐ Reconnect failed only if we were reconnecting
+    if (m_reconnectInProgress) {
+        emit notifyUser(QStringLiteral("Reconnect failed"));
+
+        // Tell UI to hide spinner (your UI already listens for this)
+        emit reconnectStopped();
+    } else {
         emit notifyUser(QStringLiteral("Disconnected from server"));
+    }
+
+    m_reconnectInProgress = false;
 
         // Only reconnect if we have connection details
         if (m_lastHost.isEmpty() || m_lastPort == 0)
@@ -212,7 +227,9 @@ void StateMachine::attemptReconnect()
     if (!m_backend)
         return;
 
+    m_reconnectInProgress = true;   // ⭐ mark reconnect active
     emit notifyUser(QStringLiteral("Reconnecting…"));
+    emit reconnecting(1, 0);                           // ⭐ UI shows spinner
     m_backend->connectToServer(m_lastHost, m_lastPort);
 }
 void StateMachine::stopAutoReconnect()

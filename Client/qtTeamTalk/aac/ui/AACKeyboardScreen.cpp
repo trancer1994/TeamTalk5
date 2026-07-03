@@ -1,104 +1,313 @@
 #include "AACKeyboardScreen.h"
 #include "AACKeyButton.h"
+#include "AACFramework.h"
 
 #include <QGridLayout>
 #include <QHBoxLayout>
 #include <QVBoxLayout>
-#include <QPushButton>
 #include <QLabel>
+#include <QTimer>
+#include <QSizePolicy>
 
-#include "AACFramework.h"
-#include "AACAccessibilityManager.h"
-#include "AACInputController.h"
+// =====================================================
+//  LETTER + PUNCTUATION VARIANT TABLES (shift-aware)
+// =====================================================
 
-AACKeyboardScreen::AACKeyboardScreen(AACFramework *framework,
-                                     AACAccessibilityManager *accessibility,
-                                     AACInputController *inputController,
-                                     QWidget *parent)
-    : QWidget(parent),
-      m_framework(framework),
-      m_accessibility(accessibility),
-      m_inputController(inputController),
-      m_mode(LettersMode),
-      m_frozen(false),
-      m_highContrast(false),
-      m_mainLayout(nullptr),
-      m_topRowLayout(nullptr),
-      m_keyboardLayout(nullptr),
-      m_controlRowLayout(nullptr),
-      m_topRowWidget(nullptr),
-      m_keyboardWidget(nullptr),
-      m_controlRowWidget(nullptr),
-      m_predictiveContainer(nullptr),
-      m_lettersModeButton(nullptr),
-      m_numbersModeButton(nullptr),
-      m_symbolsModeButton(nullptr),
-      m_emojiModeButton(nullptr),
-      m_gridModeButton(nullptr),
-      m_spaceButton(nullptr),
-      m_backspaceButton(nullptr),
-      m_enterButton(nullptr),
-      m_emojiNavWidget(nullptr),
-      m_emojiNavLayout(nullptr),
-      m_emojiPrevPageButton(nullptr),
-      m_emojiNextPageButton(nullptr),
-      m_emojiPageLabel(nullptr),
-      m_keyboardGrid(nullptr),
-      m_currentEmojiPage(0),
-      m_cursorPosition(0)
+static const QHash<QChar, QVector<QChar>> LETTER_VARIANTS = {
+    { 'a', { 'á','à','â','ä','ã','å','ā','æ' } },
+    { 'b', { 'ƀ','ɓ','β' } },
+    { 'c', { 'ç','ć','č','ĉ','ċ' } },
+    { 'd', { 'ď','đ','ɗ' } },
+    { 'e', { 'é','è','ê','ë','ē','ė','ę' } },
+    { 'f', { 'ƒ' } },
+    { 'g', { 'ğ','ĝ','ġ','ģ' } },
+    { 'h', { 'ĥ','ħ' } },
+    { 'i', { 'í','ì','î','ï','ī','į','ı' } },
+    { 'j', { 'ĵ' } },
+    { 'k', { 'ķ','ĸ' } },
+    { 'l', { 'ĺ','ļ','ľ','ŀ','ł' } },
+    { 'm', { 'ɱ' } },
+    { 'n', { 'ñ','ń','ň','ņ','ŋ' } },
+    { 'o', { 'ó','ò','ô','ö','õ','ō','ø','œ' } },
+    { 'p', { 'þ','ƥ' } },
+    { 'r', { 'ŕ','ř','ŗ' } },
+    { 's', { 'ś','š','ş','ŝ','ș' } },
+    { 't', { 'ť','ţ','ŧ','ț' } },
+    { 'u', { 'ú','ù','û','ü','ū','ů','ű','ų' } },
+    { 'w', { 'ŵ' } },
+    { 'y', { 'ý','ÿ','ŷ' } },
+    { 'z', { 'ź','ž','ż' } }
+};
+
+static const QHash<QChar, QVector<QChar>> PUNCT_VARIANTS = {
+    { '.', { '…','•','·' } },
+    { ',', { '‚','¸' } },
+    { '!', { '¡' } },
+    { '?', { '¿' } },
+    { '"', { '“','”','„','‟' } },
+    { '\'', { '‘','’','‚','‛' } },
+    { '-', { '–','—','‑' } },
+    { '(', { '〔','【','『','（' } },
+    { ')', { '〕','】','』','）' } },
+    { '/', { '⁄','∕' } },
+    { ':', { 'ː','꞉' } },
+    { ';', { ';' } }
+};
+
+// =====================================================
+//  Variant resolver (shift-aware, base included)
+// =====================================================
+
+static QVector<QChar> resolveVariants(QChar base, bool shiftOn)
+{
+    QVector<QChar> out;
+
+    // Always include the base character first
+    out.append(shiftOn ? base.toUpper() : base.toLower());
+
+    const QChar lower = base.toLower();
+
+    if (LETTER_VARIANTS.contains(lower)) {
+        const QVector<QChar> variants = LETTER_VARIANTS.value(lower);
+
+        if (!shiftOn) {
+            out += variants;
+        } else {
+            QVector<QChar> upper;
+            upper.reserve(variants.size());
+            for (QChar c : variants)
+                upper.append(c.toUpper());
+            out += upper;
+        }
+        return out;
+    }
+
+    if (PUNCT_VARIANTS.contains(base)) {
+        out += PUNCT_VARIANTS.value(base);
+        return out;
+    }
+
+    return out;
+}
+
+// =====================================================
+//  Curated Symbol Strip (always visible)
+// =====================================================
+
+static const QStringList CURATED_SYMBOLS = {
+    "🙂","😢","😡","😱",
+    "👍","👎","❤️","❓",
+    "💧","🍽️","🛏️","🆘",
+    "👋","🙏","🙇","🤝"
+};
+
+// =====================================================
+//  Symbol ↔ semantic helpers
+// =====================================================
+
+static QChar punctuationForSymbol(const QString& sym)
+{
+    if (sym == "❓") return '?';
+    if (sym == "❤️") return '.';
+    if (sym == "👋") return QChar(); // no direct punctuation, just semantic
+    if (sym == "😢") return QChar();
+    return QChar();
+}
+static QString semanticTagForSymbol(const QString& item)
+{
+    if (item == "🙂") return "emotion_happy";
+    if (item == "😢") return "emotion_sad";
+    if (item == "😡") return "emotion_angry";
+    if (item == "😱") return "emotion_scared";
+
+    if (item == "👍") return "yes";
+    if (item == "👎") return "no";
+    if (item == "❤️") return "love";
+    if (item == "❓") return "question";
+
+    if (item == "💧") return "need_water";
+    if (item == "🍽️") return "need_food";
+    if (item == "🛏️") return "need_rest";
+    if (item == "🆘") return "need_help";
+
+    if (item == "👋") return "hello";
+    if (item == "🙏") return "please";
+    if (item == "🙇") return "sorry";
+    if (item == "🤝") return "thank_you";
+
+    return QString();
+}
+
+static QString symbolForSemanticTag(const QString& tag)
+{
+    const QString t = tag.toLower();
+
+    if (t == "emotion_happy")  return "🙂";
+    if (t == "emotion_sad")    return "😢";
+    if (t == "emotion_angry")  return "😡";
+    if (t == "emotion_scared") return "😱";
+
+    if (t == "yes")      return "👍";
+    if (t == "no")       return "👎";
+    if (t == "love")     return "❤️";
+    if (t == "question") return "❓";
+
+    if (t == "need_water") return "💧";
+    if (t == "need_food")  return "🍽️";
+    if (t == "need_rest")  return "🛏️";
+    if (t == "need_help")  return "🆘";
+
+    if (t == "hello")      return "👋";
+    if (t == "please")     return "🙏";
+    if (t == "sorry")      return "🙇";
+    if (t == "thank_you")  return "🤝";
+
+    return QString();
+}
+// =====================================================
+//  Popup builder using AACKeyButton (with base char)
+// =====================================================
+
+QWidget* AACKeyboardScreen::buildPopupForKey(AACKeyButton* btn)
+{
+    QWidget* popup = new QWidget(this, Qt::Popup);
+    popup->setAttribute(Qt::WA_StyledBackground, true);
+
+    popup->setStyleSheet(
+        "background: #000000;"
+        "border: 3px solid #FFFFFF;"
+        "padding: 6px;"
+    );
+
+    auto* layout = new QHBoxLayout(popup);
+    layout->setSpacing(4);
+    layout->setContentsMargins(6, 6, 6, 6);
+
+    const QString text = btn->text();
+    if (text.isEmpty())
+        return popup;
+
+    const bool shiftOn = m_shift;
+    const QVector<QChar> variants = resolveVariants(text.at(0), shiftOn);
+
+    for (QChar v : variants) {
+        auto* opt = new AACKeyButton(QString(v), m_accessibility, popup);
+        opt->setFixedSize(64, 64);
+
+        connect(opt, &AACKeyButton::keyActivated, this, [this, v, popup]() {
+            emit characterTyped(QString(v));
+            popup->close();
+        });
+
+        layout->addWidget(opt);
+    }
+
+    return popup;
+}
+
+// =====================================================
+//  Constructor / basic wiring
+// =====================================================
+
+static QWidget* createSpacer(QWidget* parent)
+{
+    auto* w = new QWidget(parent);
+    w->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    return w;
+}
+
+AACKeyboardScreen::AACKeyboardScreen(AACAccessibilityManager* accessibility,
+                                     QWidget* parent)
+    : QWidget(parent)
+    , m_accessibility(accessibility)
 {
     populateLettersRows();
     populateNumbersRows();
     populateSymbolsRows();
-    populateEmojiPages();
     populateGridItems();
 
     buildUi();
     rebuildKeyboard();
     applyVisualSettings();
-}
 
+QString AACKeyboardScreen::contextualHelp() const
+{
+    return tr("AACKeyboard. "
+               "Type to enter text. "
+               "Press F6 to speak your message. "
+               "Press Escape to go back.");
+}
 AACKeyboardScreen::~AACKeyboardScreen() = default;
 
-void AACKeyboardScreen::setMode(AACKeyboardScreen::KeyboardMode mode)
+void AACKeyboardScreen::populateLettersRows()
 {
-    if (m_mode == mode)
-        return;
+    m_lettersRows.clear();
 
-    m_mode = mode;
-    emit modeChanged(m_mode);
-    rebuildKeyboard();
+    // Lowercase QWERTY, three rows
+    m_lettersRows << (QStringList()
+                      << "q" << "w" << "e" << "r" << "t" << "y" << "u" << "i" << "o" << "p");
+
+    m_lettersRows << (QStringList()
+                      << "a" << "s" << "d" << "f" << "g" << "h" << "j" << "k" << "l");
+
+    m_lettersRows << (QStringList()
+                      << "z" << "x" << "c" << "v" << "b" << "n" << "m");
 }
 
-void AACKeyboardScreen::updateCursorContext(int cursorPosition, const QString &text)
+void AACKeyboardScreen::populateNumbersRows()
 {
-    m_cursorPosition = cursorPosition;
-    m_currentText = text;
-    updateHighlightForCursor();
+    m_numbersRows.clear();
+
+    // Numbers row
+    m_numbersRows << (QStringList()
+                      << "1" << "2" << "3" << "4" << "5" << "6" << "7" << "8" << "9" << "0");
+
+    // Common symbols / currency / punctuation
+    m_numbersRows << (QStringList()
+                      << "-" << "/" << ":" << ";" << "(" << ")" << "£" << "&" << "@");
+
+    m_numbersRows << (QStringList()
+                      << "\"" << "." << "," << "?" << "!" << "'");
 }
 
-void AACKeyboardScreen::updateCursorHighlight(AACKeyButton *btn)
+void AACKeyboardScreen::populateSymbolsRows()
 {
-    if (m_currentHighlightedButton)
-        m_currentHighlightedButton->setHighlighted(false);
+    m_symbolsRows.clear();
 
-    m_currentHighlightedButton = btn;
-    btn->setHighlighted(true);
+    // Brackets, math, misc
+    m_symbolsRows << (QStringList()
+                      << "[" << "]" << "{" << "}" << "#" << "%" << "^" << "*" << "+");
+
+    m_symbolsRows << (QStringList()
+                      << "_" << "\\" << "|" << "~" << "<" << ">" << "=");
 }
 
-void AACKeyboardScreen::applyVisualSettings()
+void AACKeyboardScreen::populateGridItems()
 {
-    const auto buttons = findChildren<AACKeyButton*>();
-    for (AACKeyButton *btn : buttons)
-        btn->setHighContrast(m_highContrast);
-}
+    m_gridItems.clear();
 
-static QWidget *createSpacer(QWidget *parent)
-{
-    QWidget *w = new QWidget(parent);
-    w->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-    return w;
+    // Emotions
+    m_gridItems << "🙂" << "😢" << "😡" << "😱";
+
+    // Social / yes-no / question
+    m_gridItems << "👍" << "👎" << "❤️" << "❓";
+
+    // Needs
+    m_gridItems << "💧" << "🍽️" << "🛏️" << "🆘";
+
+    // Conversation
+    m_gridItems << "👋" << "🙏" << "🙇" << "🤝";
+
+    // Editing / navigation (semantic actions)
+    m_gridItems << tr("Left")
+                << tr("Right")
+                << tr("Clear")
+                << tr("Delete word")
+                << tr("Clear sentence");
 }
+// =====================================================
+//  UI construction
+// =====================================================
 
 void AACKeyboardScreen::buildUi()
 {
@@ -108,6 +317,7 @@ void AACKeyboardScreen::buildUi()
 
     // Top row
     m_topRowWidget = new QWidget(this);
+m_topRowWidget->setObjectName("topRowWidget");
     m_topRowLayout = new QHBoxLayout(m_topRowWidget);
     m_topRowLayout->setContentsMargins(4, 4, 4, 4);
     m_topRowLayout->setSpacing(4);
@@ -115,8 +325,19 @@ void AACKeyboardScreen::buildUi()
     buildTopRow();
     m_mainLayout->addWidget(m_topRowWidget);
 
+    // Curated symbol strip (always visible)
+    m_curatedStripWidget = new QWidget(this);
+m_curatedStripWidget->setObjectName("curatedStripWidget");
+    m_curatedStripLayout = new QHBoxLayout(m_curatedStripWidget);
+    m_curatedStripLayout->setContentsMargins(4, 0, 4, 0);
+    m_curatedStripLayout->setSpacing(4);
+
+    buildCuratedSymbolStrip();
+    m_mainLayout->addWidget(m_curatedStripWidget);
+
     // Keyboard area
     m_keyboardWidget = new QWidget(this);
+m_keyboardWidget->setObjectName("keyboardWidget");
     m_keyboardLayout = new QVBoxLayout(m_keyboardWidget);
     m_keyboardLayout->setContentsMargins(4, 0, 4, 0);
     m_keyboardLayout->setSpacing(4);
@@ -132,128 +353,272 @@ void AACKeyboardScreen::buildUi()
 
     buildControlRow();
     m_mainLayout->addWidget(m_controlRowWidget);
-}
+// --- Auto-scan timer (AAC-native) ---
+m_scanTimer = new QTimer(this);
+m_scanTimer->setSingleShot(false);
 
+connect(m_scanTimer, &QTimer::timeout,
+        this, &AACKeyboardScreen::moveHighlightToNextItem);
+}
 void AACKeyboardScreen::buildTopRow()
 {
     m_lettersModeButton = new AACKeyButton(tr("ABC"), m_accessibility, m_topRowWidget);
+m_lettersModeButton->setObjectName("lettersModeButton");
     m_numbersModeButton = new AACKeyButton(tr("123"), m_accessibility, m_topRowWidget);
+m_numbersModeButton->setObjectName("numbersModeButton");
     m_symbolsModeButton = new AACKeyButton(tr("#+="), m_accessibility, m_topRowWidget);
-    m_emojiModeButton   = new AACKeyButton(tr("😊"), m_accessibility, m_topRowWidget);
+m_symbolsModeButton->setObjectName("symbolsModeButton");
     m_gridModeButton    = new AACKeyButton(tr("Grid"), m_accessibility, m_topRowWidget);
+m_gridModeButton->setObjectName("gridModeButton");
 
-    connect(m_lettersModeButton, &QPushButton::clicked, this, &AACKeyboardScreen::handleModeLetters);
-    connect(m_numbersModeButton, &QPushButton::clicked, this, &AACKeyboardScreen::handleModeNumbers);
-    connect(m_symbolsModeButton, &QPushButton::clicked, this, &AACKeyboardScreen::handleModeSymbols);
-    connect(m_emojiModeButton,   &QPushButton::clicked, this, &AACKeyboardScreen::handleModeEmoji);
-    connect(m_gridModeButton,    &QPushButton::clicked, this, &AACKeyboardScreen::handleModeGrid);
+    connect(m_lettersModeButton, &AACKeyButton::keyActivated,
+            this, &AACKeyboardScreen::handleModeLetters);
+    connect(m_numbersModeButton, &AACKeyButton::keyActivated,
+            this, &AACKeyboardScreen::handleModeNumbers);
+    connect(m_symbolsModeButton, &AACKeyButton::keyActivated,
+            this, &AACKeyboardScreen::handleModeSymbols);
+    connect(m_gridModeButton,    &AACKeyButton::keyActivated,
+            this, &AACKeyboardScreen::handleModeGrid);
 
     m_topRowLayout->addWidget(m_lettersModeButton);
     m_topRowLayout->addWidget(m_numbersModeButton);
     m_topRowLayout->addWidget(m_symbolsModeButton);
-    m_topRowLayout->addWidget(m_emojiModeButton);
     m_topRowLayout->addWidget(m_gridModeButton);
     m_topRowLayout->addWidget(createSpacer(m_topRowWidget));
 
-    m_predictiveContainer = new QWidget(m_topRowWidget);
-    m_predictiveContainer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-    m_topRowLayout->addWidget(m_predictiveContainer);
+m_predictiveStrip = new PredictiveStrip(m_topRowWidget);
+m_predictiveStrip->setObjectName("predictiveStrip");
+m_predictiveStrip->setManager(m_accessibility);
+m_topRowLayout->addWidget(m_predictiveStrip, 1);
+m_predictiveStrip->setContentsMargins(4, 0, 4, 0);
+m_predictiveStrip->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+
+connect(m_predictiveStrip, &PredictiveStrip::suggestionChosen,
+        this, &AACKeyboardScreen::predictionChosen);
+}
+// =====================================================
+//  Curated Symbol Strip
+// =====================================================
+
+void AACKeyboardScreen::buildCuratedSymbolStrip()
+{
+    if (!m_curatedStripLayout)
+        return;
+
+    // Clear existing
+    QLayoutItem* item = nullptr;
+    while ((item = m_curatedStripLayout->takeAt(0)) != nullptr) {
+        if (auto* w = item->widget())
+            w->deleteLater();
+        delete item;
+    }
+
+    for (const QString& sym : CURATED_SYMBOLS) {
+        auto* btn = new AACKeyButton(sym, m_accessibility, m_curatedStripWidget);
+
+        const QString tag = semanticTagForSymbol(sym);
+btn->setObjectName("curatedSymbol_" + tag);
+
+        connect(btn, &AACKeyButton::keyActivated, this, [this, sym, tag]() {
+
+    // --- AAC multimodal feedback ---
+m_accessibility->feedback()->playAction();
+
+            if (!tag.isEmpty()) {
+                emit actionTriggered(tag);
+                emit symbolSemantic(tag);
+            }
+            emit characterTyped(sym + " ");
+        });
+
+connect(btn, &AACKeyButton::hovered,
+        this, [this, btn]() {
+            if (!m_curatedStripLayout)
+                return;
+
+            int index = m_curatedStripLayout->indexOf(btn);
+            if (index < 0)
+                return;
+
+            m_scanRow = 0;      // curated strip row
+            m_scanCol = index;
+
+            updateUnifiedHighlight();
+        });
+
+        m_curatedStripLayout->addWidget(btn);
+    }
+
+    applyVisualSettings();
+    emit curatedStripSymbolsChanged(CURATED_SYMBOLS);
 }
 
 void AACKeyboardScreen::buildKeyboardArea()
 {
-    QWidget *gridContainer = new QWidget(m_keyboardWidget);
+    auto* gridContainer = new QWidget(m_keyboardWidget);
     m_keyboardGrid = new QGridLayout(gridContainer);
     m_keyboardGrid->setContentsMargins(0, 0, 0, 0);
     m_keyboardGrid->setSpacing(4);
 
     m_keyboardLayout->addWidget(gridContainer);
-
-    // Emoji navigation
-    m_emojiNavWidget = new QWidget(m_keyboardWidget);
-    m_emojiNavLayout = new QHBoxLayout(m_emojiNavWidget);
-    m_emojiNavLayout->setContentsMargins(0, 0, 0, 0);
-    m_emojiNavLayout->setSpacing(4);
-
-    m_emojiPrevPageButton = new QPushButton(tr("◀"), m_emojiNavWidget);
-    m_emojiNextPageButton = new QPushButton(tr("▶"), m_emojiNavWidget);
-    m_emojiPageLabel      = new QLabel(m_emojiNavWidget);
-
-    connect(m_emojiPrevPageButton, &QPushButton::clicked, this, &AACKeyboardScreen::handleEmojiPageLeft);
-    connect(m_emojiNextPageButton, &QPushButton::clicked, this, &AACKeyboardScreen::handleEmojiPageRight);
-
-    m_emojiNavLayout->addWidget(m_emojiPrevPageButton);
-    m_emojiNavLayout->addWidget(m_emojiPageLabel, 1);
-    m_emojiNavLayout->addWidget(m_emojiNextPageButton);
-
-    m_keyboardLayout->addWidget(m_emojiNavWidget);
-    m_emojiNavWidget->setVisible(false);
-}
-
-void AACKeyboardScreen::handleKeyButtonActivated(const QString &text)
-{
-    if (!m_frozen)
-        emit characterTyped(text);
 }
 
 void AACKeyboardScreen::buildControlRow()
 {
-    m_spaceButton = new AACKeyButton(tr("Space"), m_accessibility, m_controlRowWidget);
     m_backspaceButton = new AACKeyButton(tr("⌫"), m_accessibility, m_controlRowWidget);
-    m_enterButton = new AACKeyButton(tr("⏎"), m_accessibility, m_controlRowWidget);
+m_backspaceButton->setObjectName("backspaceButton");
+    m_spaceButton     = new AACKeyButton(tr("Space"), m_accessibility, m_controlRowWidget);
+m_spaceButton->setObjectName("spaceButton");
+    m_enterButton     = new AACKeyButton(tr("⏎"), m_accessibility, m_controlRowWidget);
+m_enterButton->setObjectName("enterButton");
+auto* doneButton  = new AACKeyButton(tr("Done"), m_accessibility, m_controlRowWidget);
+doneButton->setObjectName("doneButton");
 
-    connect(m_spaceButton, &QPushButton::clicked, this, &AACKeyboardScreen::handleSpaceClicked);
-    connect(m_backspaceButton, &QPushButton::clicked, this, &AACKeyboardScreen::handleBackspaceClicked);
-    connect(m_enterButton, &QPushButton::clicked, this, &AACKeyboardScreen::handleEnterClicked);
+    connect(m_backspaceButton, &AACKeyButton::keyActivated,
+            this, &AACKeyboardScreen::handleBackspaceActivated);
+    connect(m_spaceButton, &AACKeyButton::keyActivated,
+            this, &AACKeyboardScreen::handleSpaceActivated);
+    connect(m_enterButton, &AACKeyButton::keyActivated,
+            this, &AACKeyboardScreen::handleEnterActivated);
+connect(doneButton, &AACKeyButton::keyActivated,
+        this, &AACKeyboardScreen::doneRequested);
 
     m_controlRowLayout->addWidget(m_backspaceButton);
     m_controlRowLayout->addWidget(m_spaceButton, 1);
     m_controlRowLayout->addWidget(m_enterButton);
+m_controlRowLayout->addWidget(doneButton);
+
+    // Backspace repeat (non-animated)
+    m_backspaceRepeatTimer = new QTimer(this);
+    m_backspaceRepeatTimer->setInterval(60);
+
+    connect(m_backspaceRepeatTimer, &QTimer::timeout,
+            this, [this]() { emit backspacePressed(); });
+
+    connect(m_backspaceButton, &AACKeyButton::pressed, this, [this]() {
+        emit backspacePressed();
+        QTimer::singleShot(400, this, [this]() {
+m_accessibility->feedback()->playBackspace();
+            if (m_backspaceButton->isDown())
+                m_backspaceRepeatTimer->start();
+        });
+    });
+
+    connect(m_backspaceButton, &AACKeyButton::released, this, [this]() {
+        m_backspaceRepeatTimer->stop();
+    });
 }
+
+// =====================================================
+//  Mode handling
+// =====================================================
+
+void AACKeyboardScreen::setMode(KeyboardMode mode)
+{
+    if (m_mode == mode)
+        return;
+
+    m_mode = mode;
+    emit modeChanged(m_mode);
+
+    switch (m_mode) {
+    case LettersMode:
+        m_cursorPlacement = CursorAfterSpace;          // Proloquo
+        break;
+
+    case GridMode:
+        m_cursorPlacement = CursorBetweenWordAndSpace; // TD Snap
+        break;
+
+    case NumbersMode:
+        m_cursorPlacement = CursorAfterWord;           // LAMP
+        break;
+
+    case SymbolsMode:
+    m_cursorPlacement = CursorAfterPunctuation;
+    break;
+}
+
+    rebuildKeyboard();
+}
+void AACKeyboardScreen::handleModeLetters() { setMode(LettersMode); }
+void AACKeyboardScreen::handleModeNumbers() { setMode(NumbersMode); }
+void AACKeyboardScreen::handleModeSymbols() { setMode(SymbolsMode); }
+void AACKeyboardScreen::handleModeGrid()    { setMode(GridMode); }
 
 void AACKeyboardScreen::rebuildKeyboard()
 {
     clearKeyboardLayout();
-    m_emojiNavWidget->setVisible(false);
 
     switch (m_mode) {
     case LettersMode: buildLettersLayout(); break;
     case NumbersMode: buildNumbersLayout(); break;
     case SymbolsMode: buildSymbolsLayout(); break;
-    case EmojiMode:   buildEmojiLayout();   break;
     case GridMode:    buildGridLayout();    break;
     }
 
-    updateHighlightForCursor();
+updateUnifiedHighlight();
 }
 
-void AACKeyboardScreen::clearKeyboardLayout()
-{
-    if (!m_keyboardGrid)
-        return;
-
-    while (QLayoutItem *item = m_keyboardGrid->takeAt(0)) {
-        if (QWidget *w = item->widget())
-            w->deleteLater();
-        delete item;
-    }
-}
+// =====================================================
+//  Layout builders
+// =====================================================
 
 void AACKeyboardScreen::buildLettersLayout()
 {
     int row = 0;
-    for (const QStringList &rowKeys : m_lettersRows) {
+    for (const QStringList& rowKeys : m_lettersRows) {
         int col = 0;
-        for (const QString &key : rowKeys) {
-            AACKeyButton *btn = new AACKeyButton(key, m_accessibility, this);
+        const bool isLastRow = (row == m_lettersRows.size() - 1);
+
+        if (isLastRow) {
+            auto* leftShift = new AACKeyButton(tr("Shift"), m_accessibility, this);
+leftShift->setObjectName("shiftButtonLeft");
+            m_shiftButtonLeft = leftShift;
+            connect(leftShift, &AACKeyButton::keyActivated,
+                    this, &AACKeyboardScreen::toggleShift);
+            leftShift->setHighlighted(m_shift || m_capsLock);
+            m_keyboardGrid->addWidget(leftShift, row, col++);
+        }
+
+        for (const QString& key : rowKeys) {
+            auto* btn = new AACKeyButton(key, m_accessibility, this);
+btn->setObjectName("key_" + key);
 
             connect(btn, &AACKeyButton::keyActivated,
                     this, &AACKeyboardScreen::handleKeyButtonActivated);
-            connect(btn, &AACKeyButton::hovered,
-                    this, &AACKeyboardScreen::updateCursorHighlight);
+connect(btn, &AACKeyButton::hovered,
+        this, [this, btn]() {
+            if (!m_keyboardGrid)
+                return;
+
+            int index = m_keyboardGrid->indexOf(btn);
+            if (index < 0)
+                return;
+
+            int cols = m_keyboardGrid->columnCount();
+            int gridRow = index / cols;
+            int gridCol = index % cols;
+
+            m_scanRow = gridRow + (m_scanCuratedStrip ? 1 : 0);
+            m_scanCol = gridCol;
+
+            updateUnifiedHighlight();
+        });
 
             m_keyboardGrid->addWidget(btn, row, col++);
         }
+
+        if (isLastRow) {
+            auto* rightShift = new AACKeyButton(tr("Shift"), m_accessibility, this);
+rightShift->setObjectName("shiftButtonRight");
+            m_shiftButtonRight = rightShift;
+            connect(rightShift, &AACKeyButton::keyActivated,
+                    this, &AACKeyboardScreen::toggleShift);
+            rightShift->setHighlighted(m_shift || m_capsLock);
+            m_keyboardGrid->addWidget(rightShift, row, col++);
+        }
+
         ++row;
     }
 }
@@ -261,15 +626,32 @@ void AACKeyboardScreen::buildLettersLayout()
 void AACKeyboardScreen::buildNumbersLayout()
 {
     int row = 0;
-    for (const QStringList &rowKeys : m_numbersRows) {
+    for (const QStringList& rowKeys : m_numbersRows) {
         int col = 0;
-        for (const QString &key : rowKeys) {
-            AACKeyButton *btn = new AACKeyButton(key, m_accessibility, this);
+        for (const QString& key : rowKeys) {
+            auto* btn = new AACKeyButton(key, m_accessibility, this);
+btn->setObjectName("key_" + key);
 
             connect(btn, &AACKeyButton::keyActivated,
                     this, &AACKeyboardScreen::handleKeyButtonActivated);
-            connect(btn, &AACKeyButton::hovered,
-                    this, &AACKeyboardScreen::updateCursorHighlight);
+connect(btn, &AACKeyButton::hovered,
+        this, [this, btn]() {
+            if (!m_keyboardGrid)
+                return;
+
+            int index = m_keyboardGrid->indexOf(btn);
+            if (index < 0)
+                return;
+
+            int cols = m_keyboardGrid->columnCount();
+            int gridRow = index / cols;
+            int gridCol = index % cols;
+
+            m_scanRow = gridRow + (m_scanCuratedStrip ? 1 : 0);
+            m_scanCol = gridCol;
+
+            updateUnifiedHighlight();
+        });
 
             m_keyboardGrid->addWidget(btn, row, col++);
         }
@@ -280,26 +662,37 @@ void AACKeyboardScreen::buildNumbersLayout()
 void AACKeyboardScreen::buildSymbolsLayout()
 {
     int row = 0;
-    for (const QStringList &rowKeys : m_symbolsRows) {
+    for (const QStringList& rowKeys : m_symbolsRows) {
         int col = 0;
-        for (const QString &key : rowKeys) {
-            AACKeyButton *btn = new AACKeyButton(key, m_accessibility, this);
+        for (const QString& key : rowKeys) {
+            auto* btn = new AACKeyButton(key, m_accessibility, this);
+btn->setObjectName("key_" + key);
 
             connect(btn, &AACKeyButton::keyActivated,
                     this, &AACKeyboardScreen::handleKeyButtonActivated);
-            connect(btn, &AACKeyButton::hovered,
-                    this, &AACKeyboardScreen::updateCursorHighlight);
+connect(btn, &AACKeyButton::hovered,
+        this, [this, btn]() {
+            if (!m_keyboardGrid)
+                return;
+
+            int index = m_keyboardGrid->indexOf(btn);
+            if (index < 0)
+                return;
+
+            int cols = m_keyboardGrid->columnCount();
+            int gridRow = index / cols;
+            int gridCol = index % cols;
+
+            m_scanRow = gridRow + (m_scanCuratedStrip ? 1 : 0);
+            m_scanCol = gridCol;
+
+            updateUnifiedHighlight();
+        });
 
             m_keyboardGrid->addWidget(btn, row, col++);
         }
         ++row;
     }
-}
-
-void AACKeyboardScreen::buildEmojiLayout()
-{
-    m_emojiNavWidget->setVisible(true);
-    updateEmojiPage();
 }
 
 void AACKeyboardScreen::buildGridLayout()
@@ -308,15 +701,50 @@ void AACKeyboardScreen::buildGridLayout()
     int col = 0;
     const int columns = 4;
 
-    for (const QString &item : m_gridItems) {
-        AACKeyButton *btn = new AACKeyButton(item, m_accessibility, this);
+    for (const QString& item : m_gridItems) {
+        auto* btn = new AACKeyButton(item, m_accessibility, this);
+btn->setObjectName("item_" + item);
 
-        connect(btn, &AACKeyButton::keyActivated,
-                this, [this, item](const QString &) {
-                    emit actionTriggered(item);
-                });
-        connect(btn, &AACKeyButton::hovered,
-                this, &AACKeyboardScreen::updateCursorHighlight);
+    if (item == tr("Clear") || item == tr("Delete word")) {
+        btn->setDeepWell(true);
+    }
+        const QString tag = semanticTagForSymbol(item);
+
+        connect(btn, &AACKeyButton::keyActivated, this, [this, item, tag]() {
+m_accessibility->feedback()->playAction();
+
+            if (!tag.isEmpty()) {
+                emit actionTriggered(tag);
+                emit symbolSemantic(tag);
+            } else if (item == tr("Left")) {
+                emit moveCursorLeft();
+            } else if (item == tr("Right")) {
+                emit moveCursorRight();
+            } else if (item == tr("Clear")) {
+                emit clearRequested();
+            } else if (item == tr("Delete word")) {
+                emit deleteWordRequested();
+            }
+        });
+
+connect(btn, &AACKeyButton::hovered,
+        this, [this, btn]() {
+            if (!m_keyboardGrid)
+                return;
+
+            int index = m_keyboardGrid->indexOf(btn);
+            if (index < 0)
+                return;
+
+            int cols = m_keyboardGrid->columnCount();
+            int gridRow = index / cols;
+            int gridCol = index % cols;
+
+            m_scanRow = gridRow + (m_scanCuratedStrip ? 1 : 0);
+            m_scanCol = gridCol;
+
+            updateUnifiedHighlight();
+        });
 
         m_keyboardGrid->addWidget(btn, row, col);
 
@@ -326,130 +754,446 @@ void AACKeyboardScreen::buildGridLayout()
         }
     }
 }
-void AACKeyboardScreen::updateHighlightForCursor()
+
+// =====================================================
+//  Predictions (word-based)
+// =====================================================
+
+void AACKeyboardScreen::setText(const QString& text)
 {
-    if (m_currentHighlightedButton) {
-        m_currentHighlightedButton->setHighlighted(false);
-        m_currentHighlightedButton.clear();
+    m_currentText = text;
+updateUnifiedHighlight();
+}
+
+void AACKeyboardScreen::updateCursorContext(int cursorPosition, const QString& text)
+{
+    m_cursorPosition = cursorPosition;
+    m_currentText = text;
+
+    if (m_predictiveStrip)
+        m_predictiveStrip->setContext(currentTokenAtCursor());
+updateUnifiedHighlight();
+}
+
+void AACKeyboardScreen::applyVisualSettings()
+{
+    const auto buttons = findChildren<AACKeyButton*>();
+    for (AACKeyButton* btn : buttons)
+        btn->setHighContrast(m_highContrast);
+}
+
+void AACKeyboardScreen::setPredictions(const QStringList& words)
+{
+    if (!m_predictiveStrip)
+        return;
+
+    m_predictiveStrip->setPredictions(words);
+}
+void AACKeyboardScreen::predictionChosen(const QString& word)
+{
+    replaceTokenAtCursor(word);
+
+    emit predictionInserted(word);
+}
+
+// =====================================================
+//  Key handling + spacing + shift
+// =====================================================
+
+void AACKeyboardScreen::handleKeyButtonActivated(const QString& text)
+{
+    if (m_frozen)
+        return;
+
+// --- AAC multimodal feedback ---
+m_accessibility->feedback()->playClick();
+
+    QString out = applyAutoCapitalization(text);
+    out = applySmartSpacing(out);
+
+    if ((m_shift || m_capsLock) && out.size() == 1 && out.at(0).isLetter())
+        out = out.toUpper();
+
+    emit characterTyped(out);
+
+    if (m_shift && !m_capsLock)
+        toggleShift();
+}
+
+void AACKeyboardScreen::handleBackspaceActivated()
+{
+    if (m_frozen)
+        return;
+
+    m_accessibility->feedback()->playBackspace();
+
+    // If cursor at start → nothing to delete
+    if (m_cursorPosition <= 0)
+        return;
+
+    const int pos = m_cursorPosition;
+    const QString& t = m_currentText;
+
+    // --- 1. DELETE SPACE AFTER PUNCTUATION AS A UNIT (".␣" → ".")
+    if (pos >= 2 &&
+        t.at(pos - 1) == ' ' &&
+        QStringLiteral(".,!?;:").contains(t.at(pos - 2))) {
+
+        emit backspacePressed(); // delete the space only
+        return;
     }
 
-    if (m_mode == LettersMode ||
-        m_mode == NumbersMode ||
-        m_mode == SymbolsMode)
-    {
-        if (m_spaceButton) {
-            m_spaceButton->setHighlighted(true);
-            m_currentHighlightedButton = m_spaceButton;
+    // --- 2. UNDO DOUBLE-SPACE PERIOD INSERTION ("word.␣" → "word␣")
+    if (pos >= 2 &&
+        t.at(pos - 1) == ' ' &&
+        t.at(pos - 2) == '.') {
+
+        // Delete the space
+        emit backspacePressed();
+
+        // Replace the period with a space
+        m_currentText[pos - 2] = ' ';
+        return;
+    }
+
+    // --- 3. GRID MODE: delete whole symbol/token
+    if (m_mode == GridMode) {
+        QString prevToken = previousToken(pos);
+        if (!prevToken.isEmpty() && !semanticTagForSymbol(prevToken).isEmpty()) {
+            emit deleteWordRequested(); // your existing signal
+            return;
         }
     }
+
+    // --- 4. FALLBACK: normal backspace
+    emit backspacePressed();
 }
 
-void AACKeyboardScreen::onDwellTick()
+void AACKeyboardScreen::handleEnterActivated()
 {
-    if (!m_scanning)
+    if (m_frozen)
         return;
 
-    if (m_scanCol < 0)
-        advanceRowScan();
-    else
-        advanceColumnScan();
+m_accessibility->feedback()->playEnter();
+
+    emit enterPressed();
+    emit characterTyped("\n");
 }
 
-void AACKeyboardScreen::clearScanHighlight()
+void AACKeyboardScreen::handleSpaceActivated()
 {
-    if (!m_keyboardGrid)
+    if (m_frozen)
         return;
 
-    for (int r = 0; r < m_keyboardGrid->rowCount(); ++r) {
-        for (int c = 0; c < m_keyboardGrid->columnCount(); ++c) {
-            if (QLayoutItem *item = m_keyboardGrid->itemAtPosition(r, c)) {
-                if (AACKeyButton *btn = qobject_cast<AACKeyButton*>(item->widget()))
-                    btn->setHighlighted(false);
+    // --- 1. DOUBLE-SPACE → period insertion (word␣␣ → word.␣)
+    if (m_cursorPosition > 0 && m_cursorPosition <= m_currentText.size()) {
+
+        const QChar prev = m_currentText.at(m_cursorPosition - 1);
+
+        if (prev == ' ' && m_cursorPosition >= 2) {
+            QChar beforeSpace = m_currentText.at(m_cursorPosition - 2);
+
+            if (beforeSpace.isLetterOrNumber()) {
+                // Replace previous space with period, then insert a space
+                m_currentText[m_cursorPosition - 1] = '.';
+                emit characterTyped(" ");
+                return;
             }
         }
     }
-}
 
-void AACKeyboardScreen::startRowScan()
-{
-    if (!m_keyboardGrid)
+    // --- 2. TRIPLE-SPACE → literal spacing (word.␣␣␣ → word.␣␣)
+    if (m_cursorPosition >= 2 &&
+        m_currentText.at(m_cursorPosition - 1) == ' ' &&
+        m_currentText.at(m_cursorPosition - 2) == '.') {
+
+        emit characterTyped(" ");
         return;
+    }
 
-    m_scanning = true;
-    m_scanRow = 0;
-    m_scanCol = -1;
-    highlightScanRow();
-}
+    // --- 3. AUTO-SPACING AFTER PUNCTUATION (.,!?;:)
+    if (m_cursorPosition > 0) {
+        const QChar prev = m_currentText.at(m_cursorPosition - 1);
 
-void AACKeyboardScreen::highlightScanRow()
-{
-    clearScanHighlight();
+        if (QStringLiteral(".,!?;:").contains(prev)) {
 
-    for (int c = 0; c < m_keyboardGrid->columnCount(); ++c) {
-        if (QLayoutItem *item = m_keyboardGrid->itemAtPosition(m_scanRow, c)) {
-            if (AACKeyButton *btn = qobject_cast<AACKeyButton*>(item->widget()))
-                btn->setHighlighted(true);
+            // If next char is already a space, do nothing special
+            if (m_cursorPosition < m_currentText.size() &&
+                m_currentText.at(m_cursorPosition) == ' ') {
+
+                m_accessibility->feedback()->playClick();
+                emit spacePressed();
+                return;
+            }
+
+            // Insert a single space after punctuation
+            emit characterTyped(" ");
+            return;
         }
     }
+
+    // --- 4. FALLBACK: normal space behaviour
+    m_accessibility->feedback()->playClick();
+    emit spacePressed();
 }
+// =====================================================
+//  Auto-capitalization + smart spacing
+// =====================================================
 
-void AACKeyboardScreen::advanceRowScan()
+bool AACKeyboardScreen::shouldAutoCapitalize(const QString& text, int cursorPos) const
 {
-    if (!m_scanning || !m_keyboardGrid)
-        return;
+    if (cursorPos <= 0)
+        return true;
 
-    m_scanRow++;
-    if (m_scanRow >= m_keyboardGrid->rowCount())
-        m_scanRow = 0;
+    // --- GRID MODE ---
+    if (m_mode == GridMode) {
 
-    highlightScanRow();
-}
+        QString prevToken = previousToken(cursorPos);
 
-void AACKeyboardScreen::startColumnScan()
-{
-    if (!m_keyboardGrid)
-        return;
+        if (!semanticTagForSymbol(prevToken).isEmpty())
+            return false;
 
-    m_scanCol = 0;
-    highlightScanColumn();
-}
+        QChar prev = text.at(cursorPos - 1);
+        if (prev == '.' || prev == '!' || prev == '?' || prev == '\n')
+            return true;
 
-void AACKeyboardScreen::highlightScanColumn()
-{
-    clearScanHighlight();
+        // punctuation before spaces
+        if (prev.isSpace()) {
+            int i = cursorPos - 1;
+            while (i > 0 && text.at(i).isSpace())
+                --i;
 
-    if (QLayoutItem *item = m_keyboardGrid->itemAtPosition(m_scanRow, m_scanCol)) {
-        if (AACKeyButton *btn = qobject_cast<AACKeyButton*>(item->widget()))
-            btn->setHighlighted(true);
+            if (i >= 0) {
+                QChar beforeSpace = text.at(i);
+                if (beforeSpace == '.' || beforeSpace == '?' || beforeSpace == '!')
+                    return true;
+            }
+        }
+
+        return false;
     }
-}
 
-void AACKeyboardScreen::advanceColumnScan()
-{
-    if (!m_keyboardGrid)
-        return;
+    // --- LETTERS MODE ---
+    QChar prev = text.at(cursorPos - 1);
 
-    m_scanCol++;
-    if (m_scanCol >= m_keyboardGrid->columnCount())
-        m_scanCol = 0;
+    if (prev == '.' || prev == '?' || prev == '!' || prev == '\n')
+        return true;
 
-    highlightScanColumn();
-}
+    if (prev.isSpace()) {
+        int i = cursorPos - 1;
+        while (i > 0 && text.at(i).isSpace())
+            --i;
 
-void AACKeyboardScreen::activateScanTarget()
-{
-    if (!m_keyboardGrid)
-        return;
-
-    if (QLayoutItem *item = m_keyboardGrid->itemAtPosition(m_scanRow, m_scanCol)) {
-        if (AACKeyButton *btn = qobject_cast<AACKeyButton*>(item->widget()))
-            btn->click();
+        if (i >= 0) {
+            QChar beforeSpace = text.at(i);
+            if (beforeSpace == '.' || beforeSpace == '?' || beforeSpace == '!')
+                return true;
+        }
     }
+
+    return false;
 }
+QString AACKeyboardScreen::applyAutoCapitalization(const QString& input) const
+{
+    if (input.size() == 1 && input.at(0).isLetter()) {
+        if (shouldAutoCapitalize(m_currentText, m_cursorPosition))
+            return input.toUpper();
+    }
+    return input;
+}
+
+QString AACKeyboardScreen::applySmartSpacing(const QString& typed) const
+{
+    // Remove space before punctuation
+    if (typed.size() == 1 && !m_currentText.isEmpty() && m_cursorPosition > 0) {
+        const QChar ch = typed.at(0);
+        if (QString(".,!?;:").contains(ch)) {
+            if (m_cursorPosition > 0 &&
+                m_currentText.at(m_cursorPosition - 1) == QChar(' ')) {
+                return QString(ch);
+            }
+        }
+    }
+    return typed;
+}
+QString AACKeyboardScreen::previousToken(int cursorPos) const
+{
+    if (cursorPos <= 0 || cursorPos > m_currentText.size())
+        return QString();
+
+    int end = cursorPos - 1;
+    while (end > 0 && m_currentText.at(end).isSpace())
+        --end;
+
+    if (end < 0)
+        return QString();
+
+    int start = end;
+    while (start > 0 && !m_currentText.at(start - 1).isSpace())
+        --start;
+
+    return m_currentText.mid(start, end - start + 1);
+}
+QString AACKeyboardScreen::currentTokenAtCursor() const
+{
+    if (m_cursorPosition < 0 || m_cursorPosition > m_currentText.size())
+        return QString();
+
+    int start = m_cursorPosition;
+    int end   = m_cursorPosition;
+
+    // Move start left until space or start of text
+    while (start > 0 && !m_currentText.at(start - 1).isSpace())
+        --start;
+
+    // Move end right until space or end of text
+    while (end < m_currentText.size() && !m_currentText.at(end).isSpace())
+        ++end;
+
+    return m_currentText.mid(start, end - start);
+}
+
+void AACKeyboardScreen::replaceTokenAtCursor(const QString& replacement)
+{
+    if (m_cursorPosition < 0 || m_cursorPosition > m_currentText.size())
+        return;
+
+    int start = m_cursorPosition;
+    int end   = m_cursorPosition;
+
+    // Find token boundaries
+    while (start > 0 && !m_currentText.at(start - 1).isSpace())
+        --start;
+
+    while (end < m_currentText.size() && !m_currentText.at(end).isSpace())
+        ++end;
+
+    QString before = m_currentText.left(start);
+    QString after  = m_currentText.mid(end);
+
+    // --- 1. CURSOR-AWARE CAPITALIZATION ---
+    QString word = replacement;
+    if (shouldAutoCapitalize(m_currentText, start))
+        word[0] = word[0].toUpper();
+
+    // --- 2. CURSOR-AWARE PUNCTUATION MERGING ---
+    const QChar afterFirst = after.isEmpty() ? QChar() : after.at(0);
+    const bool afterIsPunct = QStringLiteral(".,!?;:").contains(afterFirst);
+
+    // If replacement ends with punctuation and after also starts with punctuation → collapse
+    if (!after.isEmpty() && afterIsPunct && !word.isEmpty()) {
+        const QChar last = word.at(word.size() - 1);
+        if (QStringLiteral(".,!?;:").contains(last)) {
+            // Remove duplicate punctuation
+            if (last == afterFirst)
+                after.remove(0, 1);
+        }
+    }
+
+    // --- 3. CURSOR-AWARE SPACING ---
+    const bool beforeHasSpace = !before.isEmpty() && before.endsWith(' ');
+    const bool afterHasSpace  = !after.isEmpty() && after.startsWith(' ');
+
+    QString newText = before;
+
+    // Leading space if needed
+    if (!beforeHasSpace && !before.isEmpty() && !before.endsWith('\n'))
+        newText += ' ';
+
+    int wordStartPos = newText.size();
+    newText += word;
+    int wordEndPos = newText.size();
+
+    // Trailing space rules
+    bool needTrailingSpace = false;
+
+    if (after.isEmpty()) {
+        // End of text → always add trailing space
+        needTrailingSpace = true;
+    } else if (!afterHasSpace && !afterIsPunct) {
+        // Next token is a word → add space
+        needTrailingSpace = true;
+    }
+
+    if (needTrailingSpace)
+        newText += ' ';
+
+    int cursorPos = 0;
+
+    // --- 4. CURSOR PLACEMENT MODES ---
+    switch (m_cursorPlacement) {
+    case CursorAfterSpace: // Proloquo
+        cursorPos = newText.size();
+        break;
+
+    case CursorAfterWord: // LAMP
+        cursorPos = wordEndPos;
+        break;
+
+    case CursorBetweenWordAndSpace: // TD Snap
+        cursorPos = needTrailingSpace ? wordEndPos : newText.size();
+        break;
+
+case CursorAfterPunctuation:
+{
+    // If the replacement ends with punctuation, place cursor immediately after it.
+    if (!word.isEmpty()) {
+        QChar last = word.at(word.size() - 1);
+        if (QStringLiteral(".,!?;:").contains(last)) {
+            cursorPos = wordEndPos;   // right after punctuation
+            break;
+        }
+    }
+
+    // Otherwise behave like CursorAfterSpace
+    cursorPos = newText.size();
+    break;
+}
+
+    newText += after;
+
+    emit replaceText(newText, cursorPos);
+}
+
+// =====================================================
+//  Shift / CapsLock
+// =====================================================
+
+void AACKeyboardScreen::toggleShift()
+{
+    m_shift = !m_shift;
+    emit shiftStateChanged(m_shift);
+
+    if (m_shiftButtonLeft)
+        m_shiftButtonLeft->setHighlighted(m_shift || m_capsLock);
+    if (m_shiftButtonRight)
+        m_shiftButtonRight->setHighlighted(m_shift || m_capsLock);
+}
+
+void AACKeyboardScreen::toggleCapsLock()
+{
+    m_capsLock = !m_capsLock;
+
+    if (m_capsLock && !m_shift)
+        m_shift = true;
+    else if (!m_capsLock && m_shift)
+        m_shift = false;
+
+    emit shiftStateChanged(m_shift);
+
+    if (m_shiftButtonLeft)
+        m_shiftButtonLeft->setHighlighted(m_shift || m_capsLock);
+    if (m_shiftButtonRight)
+        m_shiftButtonRight->setHighlighted(m_shift || m_capsLock);
+}
+
+// =====================================================
+//  Freeze / high contrast
+// =====================================================
+
 void AACKeyboardScreen::onFreezeStateChanged(bool frozen)
 {
     m_frozen = frozen;
-    setEnabled(!m_frozen);
 }
 
 void AACKeyboardScreen::onHighContrastChanged(bool enabled)
@@ -458,194 +1202,437 @@ void AACKeyboardScreen::onHighContrastChanged(bool enabled)
     applyVisualSettings();
 }
 
-void AACKeyboardScreen::handleBackspaceClicked()
-{
-    if (!m_frozen)
-        emit backspacePressed();
-}
+// =====================================================
+//  Scanning + highlight + helpers (non-animated)
+// =====================================================
 
-void AACKeyboardScreen::handleEnterClicked()
+void AACKeyboardScreen::onDwellTick()
 {
-    if (!m_frozen)
-        emit enterPressed();
-}
+    const auto modes = m_accessibility->modes();
 
-void AACKeyboardScreen::handleSpaceClicked()
-{
-    if (!m_frozen)
-        emit spacePressed();
-}
+    // Curated strip dwell support (auto scanning)
+    if (m_scanning && m_curatedStripDwell && m_scanCuratedStrip && m_scanRow == 0) {
 
-void AACKeyboardScreen::handleModeLetters()
-{
-    setMode(LettersMode);
-}
+        // Adaptive attenuation / fatigue shaping hook
+        if (modes.feedbackEnabled) {
+            m_accessibility->feedbackEngine()->applyFatigueShaping();
+            m_accessibility->feedbackEngine()->applyScanningAttenuation();
+        }
 
-void AACKeyboardScreen::handleModeNumbers()
-{
-    setMode(NumbersMode);
-}
-
-void AACKeyboardScreen::handleModeSymbols()
-{
-    setMode(SymbolsMode);
-}
-
-void AACKeyboardScreen::handleModeEmoji()
-{
-    setMode(EmojiMode);
-}
-
-void AACKeyboardScreen::handleModeGrid()
-{
-    setMode(GridMode);
-}
-
-void AACKeyboardScreen::handleEmojiPageLeft()
-{
-    if (m_currentEmojiPage > 0) {
-        --m_currentEmojiPage;
-        updateEmojiPage();
+        activateScanTarget();
+        return;
     }
 }
 
-void AACKeyboardScreen::handleEmojiPageRight()
+void AACKeyboardScreen::startRowScan()
 {
-    if (m_currentEmojiPage + 1 < emojiPageCount()) {
-        ++m_currentEmojiPage;
-        updateEmojiPage();
-    }
-}
+    const auto modes = m_accessibility->modes();
 
-void AACKeyboardScreen::populateLettersRows()
-{
-    m_lettersRows.clear();
-
-    m_lettersRows << (QStringList()
-                      << "Q" << "W" << "E" << "R" << "T" << "Y" << "U" << "I" << "O" << "P");
-
-    m_lettersRows << (QStringList()
-                      << "A" << "S" << "D" << "F" << "G" << "H" << "J" << "K" << "L");
-
-    m_lettersRows << (QStringList()
-                      << "Z" << "X" << "C" << "V" << "B" << "N" << "M");
-}
-
-void AACKeyboardScreen::populateNumbersRows()
-{
-    m_numbersRows.clear();
-
-    m_numbersRows << (QStringList()
-                      << "1" << "2" << "3" << "4" << "5" << "6" << "7" << "8" << "9" << "0");
-
-    m_numbersRows << (QStringList()
-                      << "-" << "/" << ":" << ";" << "(" << ")" << "£" << "&" << "@");
-
-    m_numbersRows << (QStringList()
-                      << "\"" << "." << "," << "?" << "!" << "'");
-}
-
-void AACKeyboardScreen::populateSymbolsRows()
-{
-    m_symbolsRows.clear();
-
-    m_symbolsRows << (QStringList()
-                      << "[" << "]" << "{" << "}" << "#" << "%" << "^" << "*" << "+");
-
-    m_symbolsRows << (QStringList()
-                      << "_" << "\\" << "|" << "~" << "<" << ">" << "=");
-}
-
-void AACKeyboardScreen::populateEmojiPages()
-{
-    m_emojiPages.clear();
-
-    // Page 1 — Faces
-    QStringList faces = {
-        "😀","😁","😂","🤣","😃","😄","😅","😆",
-        "😉","😊","😋","😎","😍","😘","😗","😙",
-        "😚","🙂","🤗","🤔","🤨","😐","😑","😶",
-        "🙄","😏","😣","😖","😫","😩","😢","😭"
-    };
-
-    // Page 2 — Hands / Gestures
-    QStringList hands = {
-        "👍","👎","👊","✊","🤛","🤜","👋","🤚",
-        "✋","🖐","🤙","🤞","🤟","🤘","🤌","🤏",
-        "👈","👉","👆","👇","☝️","✌️","🤝","🙏"
-    };
-
-    // Page 3 — Objects
-    QStringList objects = {
-        "🎵","🎶","🎤","🎧","🎼","🎹","🎷","🎺",
-        "🎸","🥁","📱","💻","🖥️","⌨️","🖱️","💡",
-        "🔦","🔋","🔌","⏰","⏱️","⏲️","🕰️","📷",
-        "🎥","📹","📼","💿","📀"
-    };
-
-    // Page 4 — Symbols
-    QStringList symbols = {
-        "❤️","🧡","💛","💚","💙","💜","🖤","🤍",
-        "🤎","💔","❣️","💕","💞","💓","💗","💖",
-        "💘","💝","⭐","🌟","✨","⚡","🔥","💥",
-        "❄️","☀️","☁️","🌈","✔️","✖️","➕","➖",
-        "➡️","⬅️","⬆️","⬇️","⚠️","❗","❕","❓",
-        "❔","🔒","🔓","🔑"
-    };
-
-    m_emojiPages << faces << hands << objects << symbols;
-    m_currentEmojiPage = 0;
-}
-
-void AACKeyboardScreen::populateGridItems()
-{
-    m_gridItems.clear();
-
-    m_gridItems << tr("Yes")
-                << tr("No")
-                << tr("Maybe")
-                << tr("Help")
-                << tr("Stop")
-                << tr("More")
-                << tr("Less")
-                << tr("Thank you");
-}
-void AACKeyboardScreen::updateEmojiPage()
-{
-    clearKeyboardLayout();
-
-    if (m_currentEmojiPage < 0 || m_currentEmojiPage >= m_emojiPages.size())
+    // External controller is responsible for TalkBack / VoiceOver / Switch Control
+    // suppression; we just honour the scanning flags here.
+    if (!modes.scanning)
         return;
 
-    const QStringList &page = m_emojiPages.at(m_currentEmojiPage);
+    m_scanning = true;
 
-    int row = 0;
-    int col = 0;
-    const int columns = 8;
+    // Core symbols first
+    if (m_coreSymbolsFirst && m_scanCuratedStrip)
+        m_scanRow = 0;
+    else
+        m_scanRow = (m_scanCuratedStrip ? 1 : 0);
 
-    for (const QString &emoji : page) {
-        AACKeyButton *btn = new AACKeyButton(emoji, m_accessibility, this);
+    m_scanCol = 0;
 
-        connect(btn, &AACKeyButton::keyActivated,
-                this, &AACKeyboardScreen::handleKeyButtonActivated);
+    // Row‑level speech + soft haptic
+    if (modes.feedbackEnabled) {
+        m_accessibility->feedbackEngine()->playHapticSoft();
+        m_accessibility->speechEngine()->speakScanningRow(m_scanRow);
+        m_accessibility->feedbackEngine()->applyScanningAttenuation();
+    }
 
-        connect(btn, &AACKeyButton::hovered,
-                this, &AACKeyboardScreen::updateCursorHighlight);
+    updateUnifiedHighlight();
+// --- Auto-scan start ---
+if (!modes.stepScanning && m_scanTimer)
+    m_scanTimer->start(modes.scanningSpeedMs);
 
-        m_keyboardGrid->addWidget(btn, row, col);
+if (m_accessibility && m_accessibility->predictionEngine())
+    m_accessibility->predictionEngine()->freezePredictions();
+}
 
-        if (++col >= columns) {
-            col = 0;
-            ++row;
+void AACKeyboardScreen::startColumnScan()
+{
+    const auto modes = m_accessibility->modes();
+    if (!m_scanning || !modes.scanning)
+        return;
+
+    m_scanCol = 0;
+
+    // Item‑level speech + soft haptic
+    if (modes.feedbackEnabled) {
+        if (auto* btn = highlightedButton()) {
+            m_accessibility->feedbackEngine()->playHapticSoft();
+            m_accessibility->speechEngine()->speakScanningItem(btn->text());
+            m_accessibility->feedbackEngine()->applyScanningAttenuation();
         }
     }
 
-    const int pageIndex = m_currentEmojiPage + 1;
-    const int pageTotal = emojiPageCount();
-    m_emojiPageLabel->setText(tr("Emoji %1 / %2").arg(pageIndex).arg(pageTotal));
+if (m_accessibility && m_accessibility->predictionEngine())
+    m_accessibility->predictionEngine()->freezePredictions();
+
+    updateUnifiedHighlight();
 }
 
-int AACKeyboardScreen::emojiPageCount() const
+void AACKeyboardScreen::handleStepNext()
 {
-    return m_emojiPages.size();
+    const auto modes = m_accessibility->modes();
+    if (!modes.scanning || !modes.stepScanning)
+        return;
+
+    moveHighlightToNextItem();
+
+    if (modes.feedbackEnabled) {
+        m_accessibility->feedbackEngine()->playStepAdvance();
+        m_accessibility->feedbackEngine()->playHapticSoft();
+
+        if (auto* btn = highlightedButton())
+            m_accessibility->speechEngine()->speakScanningItem(btn->text());
+
+        m_accessibility->feedbackEngine()->applyScanningAttenuation();
+        m_accessibility->feedbackEngine()->applyFatigueShaping();
+    }
+if (m_accessibility && m_accessibility->predictionEngine())
+    m_accessibility->predictionEngine()->freezePredictions();
+}
+
+void AACKeyboardScreen::handleStepPrevious()
+{
+    const auto modes = m_accessibility->modes();
+    if (!modes.scanning || !modes.stepScanning)
+        return;
+
+    moveHighlightToPreviousItem();
+
+    if (modes.feedbackEnabled) {
+        m_accessibility->feedbackEngine()->playStepAdvance();
+        m_accessibility->feedbackEngine()->playHapticSoft();
+
+        if (auto* btn = highlightedButton())
+            m_accessibility->speechEngine()->speakScanningItem(btn->text());
+
+        m_accessibility->feedbackEngine()->applyScanningAttenuation();
+        m_accessibility->feedbackEngine()->applyFatigueShaping();
+    }
+if (m_accessibility && m_accessibility->predictionEngine())
+    m_accessibility->predictionEngine()->freezePredictions();
+}
+
+void AACKeyboardScreen::handleStepSelect()
+{
+    const auto modes = m_accessibility->modes();
+    if (!modes.scanning || !modes.stepScanning)
+        return;
+
+    // Confirm haptic before activation
+    if (modes.feedbackEnabled) {
+        m_accessibility->feedbackEngine()->playHapticConfirm();
+        m_accessibility->feedbackEngine()->applyFatigueShaping();
+    }
+
+    activateScanTarget(); // already plays click/enter/action
+if (m_accessibility && m_accessibility->predictionEngine())
+    m_accessibility->predictionEngine()->unfreezePredictions();
+}
+
+void AACKeyboardScreen::activateScanTarget()
+{
+    const auto modes = m_accessibility->modes();
+    if (!modes.scanning)
+        return;
+
+    if (auto* btn = highlightedButton()) {
+
+        const QString text = btn->text();
+        const QString tag  = semanticTagForSymbol(text);
+
+        // --- AAC multimodal feedback ---
+        if (modes.feedbackEnabled) {
+
+            // Adaptive attenuation / fatigue shaping on activation
+            m_accessibility->feedbackEngine()->applyScanningAttenuation();
+            m_accessibility->feedbackEngine()->applyFatigueShaping();
+
+            if (btn == m_backspaceButton) {
+                m_accessibility->feedback()->playBackspace();
+            }
+            else if (btn == m_enterButton) {
+                m_accessibility->feedback()->playEnter();
+            }
+            else if (btn->isDeepWell() || !tag.isEmpty()) {
+                m_accessibility->feedback()->playAction();
+            }
+            else {
+                m_accessibility->feedback()->playClick();
+            }
+
+            // Confirm haptic on successful activation
+            m_accessibility->feedbackEngine()->playHapticConfirm();
+        }
+
+        // Item speech on activation
+        m_accessibility->speechEngine()->speakScanningItem(text);
+
+        emit btn->keyActivated(text);
+    }
+}
+
+void AACKeyboardScreen::setCoreSymbolsFirst(bool enabled)
+{
+    m_coreSymbolsFirst = enabled;
+}
+
+void AACKeyboardScreen::setCuratedStripDwellEnabled(bool enabled)
+{
+    m_curatedStripDwell = enabled;
+}
+
+void AACKeyboardScreen::setHighContrastEnabled(bool enabled)
+{
+    m_highContrast = enabled;
+    applyVisualSettings();
+}
+
+void AACKeyboardScreen::setFreezeEnabled(bool enabled)
+{
+    m_frozen = enabled;
+}
+
+AACKeyButton* AACKeyboardScreen::highlightedButton() const
+{
+    // --- 1. Curated strip row (row 0) ---
+    if (m_scanCuratedStrip && m_scanRow == 0 && m_curatedStripLayout) {
+        if (m_scanCol >= 0 && m_scanCol < m_curatedStripLayout->count()) {
+            if (auto* item = m_curatedStripLayout->itemAt(m_scanCol))
+                return qobject_cast<AACKeyButton*>(item->widget());
+        }
+        return nullptr;
+    }
+
+    // --- 2. Keyboard grid rows (row 1+) ---
+    if (!m_keyboardGrid)
+        return nullptr;
+
+    // If curated strip is enabled, keyboard rows start at row 1
+    int gridRow = m_scanRow - (m_scanCuratedStrip ? 1 : 0);
+    if (gridRow < 0)
+        return nullptr;
+
+    if (auto* item = m_keyboardGrid->itemAtPosition(gridRow, m_scanCol))
+        return qobject_cast<AACKeyButton*>(item->widget());
+
+    return nullptr;
+}
+
+void AACKeyboardScreen::updateUnifiedHighlight()
+{
+    // Clear previous scanning highlight
+    if (m_currentHighlightedButton) {
+        m_currentHighlightedButton->setHighlighted(false);
+        m_currentHighlightedButton.clear();
+    }
+
+    // Apply scanning highlight
+    if (auto* btn = highlightedButton()) {
+        btn->setHighlighted(true);
+        btn->setFocus();
+        m_currentHighlightedButton = btn;
+    }
+
+    // Semantic highlight is already applied by setSemanticHighlight()
+    // and intentionally NOT cleared here.
+}
+void AACKeyboardScreen::keyPressEvent(QKeyEvent* e)
+{
+    switch (e->key()) {
+
+    case Qt::Key_Left:  moveHighlightLeft();  return;
+    case Qt::Key_Right: moveHighlightRight(); return;
+    case Qt::Key_Up:    moveHighlightUp();    return;
+    case Qt::Key_Down:  moveHighlightDown();  return;
+
+    default:
+        QWidget::keyPressEvent(e);
+        return;
+    }
+}
+
+void AACKeyboardScreen::moveHighlightLeft()
+{
+    const auto modes = m_accessibility->modes();
+    m_scanCol = qMax(0, m_scanCol - 1);
+
+    if (modes.feedbackEnabled) {
+        m_accessibility->feedbackEngine()->playHapticSoft();
+        if (auto* btn = highlightedButton())
+            m_accessibility->speechEngine()->speakScanningItem(btn->text());
+        m_accessibility->feedbackEngine()->applyScanningAttenuation();
+    }
+
+    updateUnifiedHighlight();
+}
+
+void AACKeyboardScreen::moveHighlightRight()
+{
+    const auto modes = m_accessibility->modes();
+    m_scanCol = qMin(maxCol(), m_scanCol + 1);
+
+    if (modes.feedbackEnabled) {
+        m_accessibility->feedbackEngine()->playHapticSoft();
+        if (auto* btn = highlightedButton())
+            m_accessibility->speechEngine()->speakScanningItem(btn->text());
+        m_accessibility->feedbackEngine()->applyScanningAttenuation();
+    }
+
+    updateUnifiedHighlight();
+}
+
+void AACKeyboardScreen::moveHighlightUp()
+{
+    const auto modes = m_accessibility->modes();
+    m_scanRow = qMax(0, m_scanRow - 1);
+    m_scanCol = qMin(m_scanCol, maxCol());
+
+    if (modes.feedbackEnabled) {
+        m_accessibility->feedbackEngine()->playHapticSoft();
+        m_accessibility->speechEngine()->speakScanningRow(m_scanRow);
+        m_accessibility->feedbackEngine()->applyScanningAttenuation();
+    }
+
+    updateUnifiedHighlight();
+}
+
+void AACKeyboardScreen::moveHighlightDown()
+{
+    const auto modes = m_accessibility->modes();
+    m_scanRow = qMin(maxRow(), m_scanRow + 1);
+    m_scanCol = qMin(m_scanCol, maxCol());
+
+    if (modes.feedbackEnabled) {
+        m_accessibility->feedbackEngine()->playHapticSoft();
+        m_accessibility->speechEngine()->speakScanningRow(m_scanRow);
+        m_accessibility->feedbackEngine()->applyScanningAttenuation();
+    }
+
+    updateUnifiedHighlight();
+}
+
+int AACKeyboardScreen::maxRow() const
+{
+    int rows = 0;
+
+    // Curated strip row (row 0)
+    if (m_scanCuratedStrip && m_curatedStripLayout)
+        rows += 1;
+
+    // Keyboard grid rows (row 1+)
+    if (m_keyboardGrid)
+        rows += m_keyboardGrid->rowCount();
+
+    return rows > 0 ? rows - 1 : 0;
+}
+
+int AACKeyboardScreen::maxCol() const
+{
+    return m_keyboardGrid ? m_keyboardGrid->columnCount() - 1 : 0;
+}
+
+void AACKeyboardScreen::moveHighlightToNextItem()
+{
+    const auto modes = m_accessibility->modes();
+    if (modes.stepScanning)
+        return;   // STOP auto movement when step scanning is active
+
+    int totalCols = m_keyboardGrid->columnCount();
+    int totalRows = m_keyboardGrid->rowCount() + 1; // + curated strip row
+
+    int index = m_scanRow * totalCols + m_scanCol;
+    index++;
+
+    if (index >= totalRows * totalCols)
+        index = 0;
+
+    m_scanRow = index / totalCols;
+    m_scanCol = index % totalCols;
+
+    if (modes.feedbackEnabled) {
+        m_accessibility->feedbackEngine()->playHapticSoft();
+        if (auto* btn = highlightedButton())
+            m_accessibility->speechEngine()->speakScanningItem(btn->text());
+        m_accessibility->feedbackEngine()->applyScanningAttenuation();
+    }
+
+    updateUnifiedHighlight();
+}
+
+void AACKeyboardScreen::moveHighlightToPreviousItem()
+{
+    const auto modes = m_accessibility->modes();
+    if (modes.stepScanning)
+        return;   // STOP auto movement when step scanning is active
+
+    int totalCols = m_keyboardGrid->columnCount();
+    int totalRows = m_keyboardGrid->rowCount() + 1; // + curated strip row
+
+    int index = m_scanRow * totalCols + m_scanCol;
+    index--;
+
+    if (index < 0)
+        index = totalRows * totalCols - 1;
+
+    m_scanRow = index / totalCols;
+    m_scanCol = index % totalCols;
+
+    if (modes.feedbackEnabled) {
+        m_accessibility->feedbackEngine()->playHapticSoft();
+        if (auto* btn = highlightedButton())
+            m_accessibility->speechEngine()->speakScanningItem(btn->text());
+        m_accessibility->feedbackEngine()->applyScanningAttenuation();
+    }
+
+    updateUnifiedHighlight();
+}
+void AACKeyboardScreen::stopScan()
+{
+    m_scanning = false;
+    if (m_scanTimer)
+        m_scanTimer->stop();
+
+if (m_accessibility && m_accessibility->predictionEngine())
+    m_accessibility->predictionEngine()->unfreezePredictions();
+
+    updateUnifiedHighlight();
+}
+void AACKeyboardScreen::setSemanticHighlight(const QString& tag)
+{
+    // Curated strip
+    for (int i = 0; i < m_curatedStripLayout->count(); ++i) {
+        QWidget* w = m_curatedStripLayout->itemAt(i)->widget();
+        if (auto* btn = qobject_cast<AACKeyButton*>(w)) {
+            QString symTag = semanticTagForSymbol(btn->text());
+            btn->setSemanticHighlighted(symTag == tag);
+        }
+    }
+
+    // Grid symbols (GridMode only)
+    if (m_mode == GridMode && m_keyboardGrid) {
+        for (int i = 0; i < m_keyboardGrid->count(); ++i) {
+            QWidget* w = m_keyboardGrid->itemAt(i)->widget();
+            if (auto* btn = qobject_cast<AACKeyButton*>(w)) {
+                QString symTag = semanticTagForSymbol(btn->text());
+                btn->setSemanticHighlighted(symTag == tag);
+            }
+        }
+    }
+
+    // Ensure scanning highlight stays dominant
+    updateUnifiedHighlight();
 }

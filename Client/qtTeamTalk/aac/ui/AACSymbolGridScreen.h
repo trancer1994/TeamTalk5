@@ -18,12 +18,15 @@ public:
 
 signals:
     void symbolActivated(const QString& label);
+    void keyboardRequested();
 
 private slots:
+    void onHighContrastChanged(bool enabled);
     void onSymbolClicked(const QString& label);
 
 private:
     void rebuildGrid();
+    void publishScanningLayout();
 
     // AACScreenAdapter overrides via AACScreenBase
     QList<QWidget*> interactiveWidgets() const override;

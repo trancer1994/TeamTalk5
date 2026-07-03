@@ -5,8 +5,8 @@
 
 #include "AACScreenBase.h"
 #include "aac/AACFramework.h"
+#include "aac/models/AACMessage.h"
 
-class AACKeyboardScreen;
 class AACTextBar;
 class PredictiveStrip;
 
@@ -22,10 +22,21 @@ public:
     QList<QWidget*> primaryWidgets() const override;
     QLayout* rootLayout() const override;
 
+public slots:
+    void onSemanticContextChanged(const QString& tag);
+
 signals:
-    void textCommitted(const QString& text);
+void sendToChannelMessage(const AACMessage& msg);
+void sendToUserMessage(const AACMessage& msg);
+void speakAACMessage(const AACMessage& msg);
+    void clearRequested();
+    void doneRequested();
+    void keyboardRequested();
+    void symbolGridRequested();
 
 private slots:
+    void onEnterPressed();
+    void onDone();
     void onTextChanged(const QString& text);
     void onSuggestionChosen(const QString& word);
     void onCursorMoved(int pos);
@@ -39,11 +50,16 @@ private slots:
     void onMoveCursorRight();
 
 private:
+AACMessage buildAACMessageForSend() const;
+enum class SendMode { Channel, Private, Speak };
+SendMode m_sendMode = SendMode::Channel;
     AACAccessibilityManager* m_aac = nullptr;
 
+QLabel* m_semanticLabel = nullptr;
+QLabel* m_cursorSemanticLabel = nullptr;
     QVBoxLayout* m_rootLayout = nullptr;
 
     AACTextBar*        m_textBar        = nullptr;
-    AACKeyboardScreen* m_keyboardScreen = nullptr;
     PredictiveStrip*   m_predictiveStrip = nullptr;
+QString currentTokenAtCursor() const;
 };

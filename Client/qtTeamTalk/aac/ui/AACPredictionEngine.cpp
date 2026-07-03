@@ -15,6 +15,123 @@ AACPredictionEngine::AACPredictionEngine(AACAccessibilityManager* mgr,
     : QObject(parent)
     , m_mgr(mgr)
 {
+    loadDefaultSemanticPhrases();
+}
+
+// -------------------------
+// Semantic helpers
+// -------------------------
+
+bool AACPredictionEngine::semanticActive() const
+{
+    if (m_currentSemanticTag.isEmpty())
+        return false;
+
+    int age = m_recencyCounter - m_semanticSetTick;
+    return age >= 0 && age <= m_semanticDecayWindow;
+}
+
+void AACPredictionEngine::decaySemanticIfNeeded() const
+{
+    if (!semanticActive()) {
+        // semantic context expired; tag remains but stops contributing
+        return;
+    }
+}
+
+float AACPredictionEngine::semanticWeightFor(const std::string& candidate) const
+{
+    if (!semanticActive())
+        return 0.0f;
+
+    float score = 0.0f;
+
+    // Strong boost for last symbol word
+    if (!m_lastSymbolWord.empty() && candidate == m_lastSymbolWord)
+        score += 2.5f;
+
+    // Boost words that appear in symbol phrases for current tag
+    auto it = m_symbolPhrases.find(m_currentSemanticTag.toLower().toStdString());
+    if (it != m_symbolPhrases.end()) {
+        for (const auto& phrase : it->second) {
+            QString qPhrase = QString::fromStdString(phrase);
+            QStringList parts = qPhrase.split(QRegularExpression("\\s+"),
+                                              Qt::SkipEmptyParts);
+            for (const QString& p : parts) {
+                if (p.toLower().toStdString() == candidate) {
+                    score += 1.0f;
+                    break;
+                }
+            }
+        }
+    }
+
+    // Light boost for category presence
+    if (!m_currentCategory.isEmpty())
+        score += 0.3f;
+
+    // Category blending (emotion + social, needs + emotion, etc.)
+    const QString cat = m_currentCategory.toLower();
+    if (cat == "emotion" || cat == "social")
+        score += 0.2f;
+    else if (cat == "needs")
+        score += 0.15f;
+
+    // Decay with age
+    int age = m_recencyCounter - m_semanticSetTick;
+    if (age > 0) {
+        float factor = std::max(0.2f, 1.0f - (age / float(m_semanticDecayWindow * 2)));
+        score *= factor;
+    }
+
+    return score;
+}
+
+float AACPredictionEngine::semanticWeightForToken(const std::string& token) const
+{
+    return semanticWeightFor(token);
+}
+void AACPredictionEngine::setSemanticContext(const QString& tag)
+{
+    if (tag.isEmpty())
+    m_currentSemanticTag.clear();
+    m_currentCategory.clear();
+    m_lastSymbolWord.clear();
+    emit semanticContextChanged(QString());
+        return;
+
+    m_currentSemanticTag = tag.trimmed();
+    m_semanticSetTick = m_recencyCounter;
+
+    const QString lower = m_currentSemanticTag.toLower();
+
+    // Category + last-symbol-word mapping
+    if (lower.startsWith("emotion_")) {
+        setCurrentCategory("emotion");
+        setLastSymbolWord(lower.mid(QString("emotion_").length()));
+    }
+    else if (lower.startsWith("need_")) {
+        setCurrentCategory("needs");
+        setLastSymbolWord(lower.mid(QString("need_").length()));
+    }
+    else if (lower.startsWith("social_")) {
+        setCurrentCategory("social");
+        setLastSymbolWord(lower.mid(QString("social_").length()));
+    }
+    else if (lower == "yes" || lower == "no") {
+        setCurrentCategory("response");
+        setLastSymbolWord(lower);
+    }
+    else if (lower == "question") {
+        setCurrentCategory("question");
+        setLastSymbolWord("question");
+    }
+    else {
+        // Fallback: treat tag itself as the last symbol word
+        setLastSymbolWord(lower);
+    }
+
+    emit semanticContextChanged(m_currentSemanticTag);
 }
 
 // -------------------------
@@ -94,6 +211,27 @@ void AACPredictionEngine::learnUtterance(const QString& text)
         entry.count += 1;
         entry.recencyTick = ++m_recencyCounter;
     }
+
+    // Symbol → next-word bigram seeding
+    if (semanticActive() && !m_lastSymbolWord.empty() && !tokens.empty()) {
+        const std::string& firstWord = tokens.front();
+        ++m_bigram[m_lastSymbolWord][firstWord];
+        m_sessionBigramBoost[m_lastSymbolWord][firstWord] += 1.0f;
+    }
+
+    // Symbol → next-phrase reinforcement + per-user semantic phrase learning
+    if (semanticActive() && !trimmed.isEmpty()) {
+        std::string tagKey = m_currentSemanticTag.toLower().toStdString();
+        auto& vec = m_symbolPhrases[tagKey];
+
+        std::string phraseKey = trimmed.toLower().toStdString();
+        bool exists = std::find(vec.begin(), vec.end(), phraseKey) != vec.end();
+        if (!exists)
+            vec.push_back(phraseKey);
+    }
+
+    // Reverse semantic mapping from utterance
+    inferSemanticFromUtterance(text);
 }
 
 // -------------------------
@@ -137,7 +275,181 @@ bool AACPredictionEngine::fuzzyCloseEnough(const std::string& typed,
 }
 
 // -------------------------
-// Stage 7: phrase suggestions (recency + frequency)
+// Semantic API
+// -------------------------
+
+void AACPredictionEngine::setSemanticContext(const QString& tag)
+{
+    if (tag.isEmpty())
+        return;
+
+    m_currentSemanticTag = tag.trimmed();
+    m_semanticSetTick = m_recencyCounter;
+
+    const QString lower = m_currentSemanticTag.toLower();
+
+    if (lower.startsWith("emotion_")) {
+        setCurrentCategory("emotion");
+        setLastSymbolWord(lower.mid(QString("emotion_").length()));
+    } else if (lower.startsWith("need_")) {
+        setCurrentCategory("needs");
+        setLastSymbolWord(lower.mid(QString("need_").length()));
+    } else if (lower.startsWith("social_")) {
+        setCurrentCategory("social");
+        setLastSymbolWord(lower.mid(QString("social_").length()));
+    } else if (lower == "yes" || lower == "no") {
+        setCurrentCategory("response");
+        setLastSymbolWord(lower);
+    } else if (lower == "question") {
+        setCurrentCategory("question");
+        setLastSymbolWord("question");
+    } else {
+        // Fallback: treat tag itself as last symbol word
+        setLastSymbolWord(lower);
+    }
+}
+
+void AACPredictionEngine::registerSymbolPhrases(const QString& tag,
+                                                const QStringList& phrases)
+{
+    if (tag.isEmpty() || phrases.isEmpty())
+        return;
+
+    std::string key = tag.trimmed().toLower().toStdString();
+    auto& vec = m_symbolPhrases[key];
+    vec.clear();
+    vec.reserve(phrases.size());
+
+    for (const QString& p : phrases) {
+        QString trimmed = p.trimmed();
+        if (!trimmed.isEmpty())
+            vec.push_back(trimmed.toLower().toStdString());
+    }
+}
+
+void AACPredictionEngine::inferSemanticFromUtterance(const QString& text)
+{
+    QString lower = text.trimmed().toLower();
+    if (lower.isEmpty())
+        return;
+
+    for (const auto& kv : m_symbolPhrases) {
+        const std::string& tag = kv.first;
+        const auto& phrases = kv.second;
+
+        for (const auto& phrase : phrases) {
+            QString qPhrase = QString::fromStdString(phrase);
+            if (lower.startsWith(qPhrase) || lower.contains(qPhrase)) {
+                setSemanticContext(QString::fromStdString(tag));
+                return;
+            }
+        }
+    }
+}
+
+// Starter semantic phrase-bank
+void AACPredictionEngine::loadDefaultSemanticPhrases()
+{
+    // Emotion
+    registerSymbolPhrases("emotion_happy", {
+        QObject::tr("I am happy"),
+        QObject::tr("This is good"),
+        QObject::tr("I like this"),
+        QObject::tr("That makes me smile")
+    });
+
+    registerSymbolPhrases("emotion_sad", {
+        QObject::tr("I feel sad"),
+        QObject::tr("This is hard"),
+        QObject::tr("I am upset"),
+        QObject::tr("I want comfort")
+    });
+
+    registerSymbolPhrases("emotion_angry", {
+        QObject::tr("I am angry"),
+        QObject::tr("I do not like this"),
+        QObject::tr("Please stop"),
+        QObject::tr("This is not okay")
+    });
+
+    registerSymbolPhrases("emotion_scared", {
+        QObject::tr("I am scared"),
+        QObject::tr("I feel unsafe"),
+        QObject::tr("Stay with me"),
+        QObject::tr("Please help me feel safe")
+    });
+
+    // Needs
+    registerSymbolPhrases("need_water", {
+        QObject::tr("I am thirsty"),
+        QObject::tr("I need a drink"),
+        QObject::tr("Can I have some water?")
+    });
+
+    registerSymbolPhrases("need_food", {
+        QObject::tr("I am hungry"),
+        QObject::tr("I need food"),
+        QObject::tr("Can we eat now?")
+    });
+
+    registerSymbolPhrases("need_rest", {
+        QObject::tr("I am tired"),
+        QObject::tr("I need to rest"),
+        QObject::tr("Can I lie down?")
+    });
+
+    registerSymbolPhrases("need_help", {
+        QObject::tr("I need help"),
+        QObject::tr("Please help me"),
+        QObject::tr("Something is wrong")
+    });
+
+    // Social / conversation
+    registerSymbolPhrases("hello", {
+        QObject::tr("Hello"),
+        QObject::tr("Hi"),
+        QObject::tr("Good to see you")
+    });
+
+    registerSymbolPhrases("please", {
+        QObject::tr("Please"),
+        QObject::tr("Could you please"),
+        QObject::tr("I would like")
+    });
+
+    registerSymbolPhrases("sorry", {
+        QObject::tr("I am sorry"),
+        QObject::tr("I did not mean to"),
+        QObject::tr("Please forgive me")
+    });
+
+    registerSymbolPhrases("thank_you", {
+        QObject::tr("Thank you"),
+        QObject::tr("Thanks a lot"),
+        QObject::tr("I appreciate that")
+    });
+
+    registerSymbolPhrases("yes", {
+        QObject::tr("Yes"),
+        QObject::tr("That is okay"),
+        QObject::tr("I agree")
+    });
+
+    registerSymbolPhrases("no", {
+        QObject::tr("No"),
+        QObject::tr("I do not want that"),
+        QObject::tr("That is not okay")
+    });
+
+    registerSymbolPhrases("question", {
+        QObject::tr("I have a question"),
+        QObject::tr("Can I ask something?"),
+        QObject::tr("I do not understand")
+    });
+}
+
+// -------------------------
+// Stage 7: phrase suggestions (recency + frequency + semantic)
 // -------------------------
 
 std::vector<std::string> AACPredictionEngine::phraseSuggestions(const std::string& prefix,
@@ -152,7 +464,7 @@ std::vector<std::string> AACPredictionEngine::phraseSuggestions(const std::strin
                                         .toLower()
                                         .toStdString();
 
-    if (lowerPrefix.empty())
+    if (lowerPrefix.empty() && !semanticActive())
         return out;
 
     struct Scored {
@@ -164,11 +476,29 @@ std::vector<std::string> AACPredictionEngine::phraseSuggestions(const std::strin
     std::vector<Scored> candidates;
     candidates.reserve(m_phrases.size());
 
+    // Phrase memory
     for (const auto& kv : m_phrases) {
         const auto& entry = kv.second;
-        if (entry.phrase.rfind(lowerPrefix, 0) == 0) { // starts with prefix
-            int score = entry.count * 10 + entry.recencyTick; // freq + recency
-            candidates.push_back({ entry.phrase, score, entry.recencyTick });
+        if (!lowerPrefix.empty()) {
+            if (entry.phrase.rfind(lowerPrefix, 0) != 0)
+                continue;
+        }
+        int score = entry.count * 10 + entry.recencyTick;
+        candidates.push_back({ entry.phrase, score, entry.recencyTick });
+    }
+
+    // Symbol phrase bank (semantic)
+    if (semanticActive()) {
+        auto it = m_symbolPhrases.find(m_currentSemanticTag.toLower().toStdString());
+        if (it != m_symbolPhrases.end()) {
+            for (const auto& phrase : it->second) {
+                if (!lowerPrefix.empty()) {
+                    if (phrase.rfind(lowerPrefix, 0) != 0)
+                        continue;
+                }
+                int base = 1000;
+                candidates.push_back({ phrase, base, m_recencyCounter });
+            }
         }
     }
 
@@ -270,7 +600,7 @@ float AACPredictionEngine::scoreCandidate(const Context& ctx,
         }
     }
 
-    // Stage 18: AAC category weighting (simple, safe)
+    // Stage 18: AAC category weighting
     if (!m_currentCategory.isEmpty()) {
         auto itP = m_phrases.find(m_currentCategory.toLower().toStdString());
         if (itP != m_phrases.end()) {
@@ -280,10 +610,13 @@ float AACPredictionEngine::scoreCandidate(const Context& ctx,
 
     // Stage 18: last symbol word weighting
     if (!m_lastSymbolWord.empty() && candidate == m_lastSymbolWord) {
-        score += 2.0f; // strong bias toward repeating last symbol word
+        score += 2.0f;
     }
 
-    // Punctuation context: after question, boost "yes/no" style words slightly
+    // Semantic weighting (symbol + category blending)
+    score += semanticWeightFor(candidate);
+
+    // Punctuation context: after question, boost "yes/no"
     if (ctx.afterQuestion) {
         if (candidate == "yes" || candidate == "no")
             score += 1.5f;
@@ -310,11 +643,14 @@ std::vector<std::string> AACPredictionEngine::Predict(const std::string& prefix,
     if (maxSuggestions <= 0)
         return result;
 
-    // Stage 19: freeze — if frozen and we have a stable list, return it
+    // Stage 19: freeze
     if (m_predictionsFrozen && !m_lastStable.empty())
         return m_lastStable;
 
-    // Stage 7: phrase-level suggestions first
+    // Semantic decay
+    decaySemanticIfNeeded();
+
+    // Stage 7: phrase-level suggestions (includes symbol phrases)
     auto phraseRes = phraseSuggestions(prefix, maxSuggestions);
     for (auto& p : phraseRes)
         result.push_back(p);
@@ -342,7 +678,7 @@ std::vector<std::string> AACPredictionEngine::Predict(const std::string& prefix,
         return result;
     }
 
-    // Punctuation-aware context (Stage 3 + 9 + 17)
+    // Punctuation-aware context
     QString qPrefix = QString::fromStdString(prefix);
     QString cleaned = normalizePunctuation(qPrefix);
 
@@ -351,7 +687,7 @@ std::vector<std::string> AACPredictionEngine::Predict(const std::string& prefix,
 
     Context ctx = buildContext(parts);
 
-    // Stage 8: Trigram context (w1, w2 -> w3)
+    // Stage 8: Trigram context
     if (!ctx.prevWord.empty() && !ctx.lastWord.empty()) {
         auto it1 = m_trigram.find(ctx.prevWord);
         if (it1 != m_trigram.end()) {
@@ -381,7 +717,7 @@ std::vector<std::string> AACPredictionEngine::Predict(const std::string& prefix,
         }
     }
 
-    // 1) Bigram context (Stage 2)
+    // 1) Bigram context
     if (!ctx.lastWord.empty()) {
         auto itBig = m_bigram.find(ctx.lastWord);
         if (itBig != m_bigram.end()) {
@@ -401,7 +737,7 @@ std::vector<std::string> AACPredictionEngine::Predict(const std::string& prefix,
         }
     }
 
-    // 2) Personal dictionary + fuzzy matching (Stage 10 + 11)
+    // 2) Personal dictionary + fuzzy matching
     if (!ctx.lastWord.empty() && (int)result.size() < maxSuggestions) {
         for (const auto& w : m_customWords) {
             if (fuzzyCloseEnough(ctx.lastWord, w)) {
@@ -414,7 +750,7 @@ std::vector<std::string> AACPredictionEngine::Predict(const std::string& prefix,
         }
     }
 
-    // 3) Fill with top unigrams (Stage 2,12,17,18,14)
+    // 3) Fill with top unigrams (scored)
     if ((int)result.size() < maxSuggestions) {
         std::vector<std::pair<std::string,int>> uni(m_unigram.begin(), m_unigram.end());
         std::sort(uni.begin(), uni.end(),
@@ -443,7 +779,7 @@ std::vector<std::string> AACPredictionEngine::Predict(const std::string& prefix,
         }
     }
 
-    // Stage 19: stability layer (hysteresis)
+    // Stage 19: stability layer
     if (!m_lastStable.empty()) {
         int overlap = 0;
         for (const auto& s : result) {
@@ -710,6 +1046,17 @@ bool AACPredictionEngine::saveToFile(const QString& path) const
         out << QString::fromStdString(w) << " " << seen << "\n";
     }
 
+    // Semantic symbol phrases (per-user)
+    out << "SYMBOL\n";
+    for (const auto& kv : m_symbolPhrases) {
+        QString tag = QString::fromStdString(kv.first);
+        for (const auto& phrase : kv.second) {
+            QString qPhrase = QString::fromStdString(phrase);
+            // Use '|' as separator to allow spaces in phrase
+            out << tag << "|" << qPhrase << "\n";
+        }
+    }
+
     return true;
 }
 
@@ -736,6 +1083,9 @@ bool AACPredictionEngine::loadFromFile(const QString& path)
     m_negativeCount.clear();
     m_positiveCount.clear();
     m_lastTopPrediction.clear();
+    m_currentSemanticTag.clear();
+    m_semanticSetTick = 0;
+    m_symbolPhrases.clear();
 
     QTextStream in(&f);
     QString section;
@@ -746,8 +1096,25 @@ bool AACPredictionEngine::loadFromFile(const QString& path)
             continue;
 
         if (line == "UNIGRAM" || line == "BIGRAM" || line == "TRIGRAM" ||
-            line == "PHRASE" || line == "CUSTOM") {
+            line == "PHRASE" || line == "CUSTOM" || line == "SYMBOL") {
             section = line;
+            continue;
+        }
+
+        if (section == "SYMBOL") {
+            int idx = line.indexOf('|');
+            if (idx <= 0)
+                continue;
+            QString tag = line.left(idx).trimmed().toLower();
+            QString phrase = line.mid(idx + 1).trimmed().toLower();
+            if (tag.isEmpty() || phrase.isEmpty())
+                continue;
+
+            std::string key = tag.toStdString();
+            std::string p   = phrase.toStdString();
+            auto& vec = m_symbolPhrases[key];
+            if (std::find(vec.begin(), vec.end(), p) == vec.end())
+                vec.push_back(p);
             continue;
         }
 

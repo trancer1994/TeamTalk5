@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="org.aacframework">
+
+    <!-- Your haptic permission -->
+    <uses-permission android:name="android.permission.VIBRATE"/>
+
+    <!-- Minimum + target SDK (Qt will override target if needed) -->
+    <uses-sdk android:minSdkVersion="21"/>
+
+    <application
+        android:label="TeamTalk AAC"
+        android:icon="@mipmap/ic_launcher"
+        android:allowBackup="true"
+        android:hardwareAccelerated="true"
+        android:hasCode="true">
+
+        <!-- Qt injects its own QtActivity subclass here -->
+        <activity
+            android:name="org.qtproject.qt5.android.bindings.QtActivity"
+            android:label="TeamTalk AAC"
+            android:configChanges="orientation|keyboardHidden|screenSize|smallestScreenSize|screenLayout|locale|fontScale|keyboard|navigation"
+            android:screenOrientation="unspecified"
+            android:launchMode="singleTop">
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+
+        </activity>
+
+        <!-- Qt needs this service for background tasks -->
+        <service android:name="org.qtproject.qt5.android.bindings.QtService"/>
+
+    </application>
+
+</manifest>

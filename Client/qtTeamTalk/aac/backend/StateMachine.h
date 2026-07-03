@@ -58,4 +58,5 @@ private:
 
     BackendAdapter* m_backend = nullptr;
     BackendState m_state;
+bool m_reconnectInProgress = false;
 };

@@ -94,7 +94,7 @@ public:
 
 /*
  * AAC‑native flat blocks
- * (all QGroupBox removed, all checkboxes → AACToggle, all buttons → AACButton)
+ * (all QGroupBox removed, all checkboxes → AACToggle, all buttons → AACKeyButton)
  */
 
 class AACSpeechIdentityBlock : public QWidget

@@ -1,35 +1,56 @@
 #pragma once
+#include "AACScreenBase.h"
 
-#include "AACScreen.h"
+struct ServerInfo {
+    QString host;
+    quint16 port;
+    QString username;
+    QString password;
+};
+
+enum class ConnectMode {
+    MetadataDriven,
+    Manual
+};
 
 class QLineEdit;
-class QSpinBox;
-class QPushButton;
+class AACKeyButton;
 
-// Connect screen with:
-// - Host
-// - Port
-// - Username
-// - Connect button
-// - Error line
-// - Settings (App Settings)
-// - AAC Access (AAC Settings)
-class ConnectScreen : public AACScreen {
+class ConnectScreen : public AACScreenBase
+{
     Q_OBJECT
 public:
     explicit ConnectScreen(AACAccessibilityManager* aac, QWidget* parent = nullptr);
 
-    void setError(const QString& message);
+    void setMode(ConnectMode mode);
+    void setMetadata(const QString& host, quint16 port);
+void showReconnectSpinner();
+void hideReconnectSpinner();
+    void setUiEnabled(bool enabled);
+
+protected:
+    void keyPressEvent(QKeyEvent* e) override;
 
 signals:
-    void connectRequested(const QString& host, int port, const QString& username);
-    void settingsRequested();
-    void aacSettingsRequested();
+    void cycleNextMode();
+    void cyclePrevMode();
+    void connectRequested(const ServerInfo& info);
+    void backRequested();
+void reconnectRequested();
+void reconnectCancelled();
 
 private:
-    QLineEdit*  m_hostEdit     = nullptr;
-    QSpinBox*   m_portEdit     = nullptr;
-    QLineEdit*  m_usernameEdit = nullptr;
-    QPushButton* m_connectButton = nullptr;
-    QLineEdit*  m_errorLine    = nullptr;
+    void speak(const QString& text);
+    ConnectMode m_mode = ConnectMode::Manual;
+
+    QLineEdit* m_hostEdit = nullptr;
+    QLineEdit* m_portEdit = nullptr;
+    QLineEdit* m_userEdit = nullptr;
+    QLineEdit* m_passEdit = nullptr;
+QWidget* m_reconnectOverlay = nullptr;
+QLabel*  m_reconnectLabel   = nullptr;
+
+    AACKeyButton* m_connectBtn = nullptr;
+    AACKeyButton* m_backBtn = nullptr;
+    AACKeyButton* m_reconnectBtn = nullptr; // NEW
 };

@@ -1264,8 +1264,13 @@ void MainWindow::clienteventCmdUserJoined(const User& user)
         if (m_usercache.find(cacheid) != m_usercache.end())
             m_usercache[cacheid].sync(ttInst, user);
     }
+// ⭐ AAC: restore per-user volume on join
+if (aacFramework->hasUserVolume(user.nUserID)) {
+    int percent = aacFramework->userVolume(user.nUserID);
+    int vol = refVolume(percent);  // from utilsound.h
+    TT_SetUserVolume(ttInst, user.nUserID, STREAMTYPE_VOICE, vol);
 }
-
+}
 void MainWindow::clienteventCmdUserLeft(int prevchannelid, const User& user)
 {
     if (user.nUserID == TT_GetMyUserID(ttInst))
@@ -1312,6 +1317,14 @@ void MainWindow::clienteventCmdUserUpdate(const User& user)
     Q_ASSERT(prev_user.nUserID);
 
     emit userUpdate(user);
+
+    // ⭐ AAC: detect volume change and save it
+    if (user.nUserID != TT_GetMyUserID(ttInst)) {
+        if (user.nVolumeVoice != prev_user.nVolumeVoice) {
+            int percent = invRefVolume(user.nVolumeVoice);  // TT volume → percent
+            aacFramework->setUserVolume(user.nUserID, percent);
+        }
+    }
 
     if (user.nUserID != TT_GetMyUserID(ttInst) && user.nChannelID == m_mychannel.nChannelID)
     {

@@ -19,17 +19,28 @@ AACTextBar::AACTextBar(AACAccessibilityManager* mgr, QWidget* parent)
     buildUi();
     populateVoices();
     connectSignals();
+
+m_cursorBreadcrumb = new QLabel(this);
+m_cursorBreadcrumb->setVisible(false);
+m_cursorBreadcrumb->setStyleSheet(
+    "color: #888; font-size: 14px; background: transparent;"
+);
+m_cursorBreadcrumb->setAttribute(Qt::WA_TransparentForMouseEvents);
+m_cursorBreadcrumb->raise();  // ensure it floats above the text
 }
 
-QString AACTextBar::text() const {
+QString AACTextBar::text() const
+{
     return m_edit->text();
 }
-
-void AACTextBar::setText(const QString& t) {
+void AACTextBar::setText(const QString& t)
+{
     m_edit->setText(t);
+    emit textChanged(t);
 }
 
-void AACTextBar::buildUi() {
+void AACTextBar::buildUi()
+{
     m_edit = new QLineEdit(this);
 
     m_speakBtn = new QPushButton(tr("Speak"), this);
@@ -69,9 +80,12 @@ void AACTextBar::buildUi() {
     setLayout(layout);
 }
 
-void AACTextBar::connectSignals() {
+void AACTextBar::connectSignals()
+{
     connect(m_edit, &QLineEdit::cursorPositionChanged,
         this, &AACTextBar::cursorMoved);
+connect(m_edit, &QLineEdit::textChanged,
+        this, &AACTextBar::textChanged);
     connect(m_speakBtn, &QPushButton::clicked, this, &AACTextBar::onSpeak);
     connect(m_stopBtn, &QPushButton::clicked, this, &AACTextBar::onStop);
 
@@ -93,7 +107,8 @@ void AACTextBar::connectSignals() {
     }
 }
 
-void AACTextBar::populateVoices() {
+void AACTextBar::populateVoices()
+{
     if (!m_speech)
         return;
 
@@ -105,34 +120,39 @@ void AACTextBar::populateVoices() {
         m_voiceCombo->setCurrentIndex(0);
 }
 
-void AACTextBar::onSpeak() {
+void AACTextBar::onSpeak()
+{
     const QString t = m_edit->text();
     emit speakRequested(t);
     if (m_speech)
         m_speech->speak(t);
 }
 
-void AACTextBar::onStop() {
+void AACTextBar::onStop()
+{
     emit stopRequested();
     if (m_speech)
         m_speech->stop();
 }
 
-void AACTextBar::onRateChanged(int value) {
+void AACTextBar::onRateChanged(int value)
+{
     const double rate = value / 100.0;
     emit rateChanged(rate);
     if (m_speech)
         m_speech->setRate(rate);
 }
 
-void AACTextBar::onPitchChanged(int value) {
+void AACTextBar::onPitchChanged(int value)
+{
     const double pitch = value / 100.0;
     emit pitchChanged(pitch);
     if (m_speech)
         m_speech->setPitch(pitch);
 }
 
-void AACTextBar::onVoiceSelected(int index) {
+void AACTextBar::onVoiceSelected(int index)
+{
     if (!m_speech)
         return;
 
@@ -141,7 +161,8 @@ void AACTextBar::onVoiceSelected(int index) {
     m_speech->setVoice(voiceName);
 }
 
-void AACTextBar::onSpeakAsYouTypeChanged(const QString& text) {
+void AACTextBar::onSpeakAsYouTypeChanged(const QString& text)
+{
     if (!m_speech)
         return;
 
@@ -149,7 +170,8 @@ void AACTextBar::onSpeakAsYouTypeChanged(const QString& text) {
         m_speech->speakLetter(text.right(1));
 }
 
-void AACTextBar::rebuildHistoryMenu() {
+void AACTextBar::rebuildHistoryMenu()
+{
     if (!m_history)
         return;
 
@@ -165,7 +187,8 @@ void AACTextBar::rebuildHistoryMenu() {
     }
 }
 
-void AACTextBar::onHistoryTriggered() {
+void AACTextBar::onHistoryTriggered()
+{
     rebuildHistoryMenu();
 }
 void AACTextBar::insertCharacter(QChar ch)
@@ -248,4 +271,26 @@ QString AACTextBar::lastWord() const
 
     const QStringList parts = t.split(' ', Qt::SkipEmptyParts);
     return parts.isEmpty() ? QString() : parts.last();
+}
+void AACTextBar::updateCursorBreadcrumb(const QString& token, const QString& tag)
+{
+    // Hide if no token or no semantic tag
+    if (token.isEmpty() || tag.isEmpty()) {
+        m_cursorBreadcrumb->setVisible(false);
+        return;
+    }
+
+    // Set breadcrumb text
+    m_cursorBreadcrumb->setText(QString("%1 (%2)").arg(token, tag));
+
+    // Get cursor rectangle
+    int cursorPos = this->cursorPosition();
+    QRect r = cursorRect(cursorPos);
+
+    // Position breadcrumb slightly above the cursor
+    int x = r.x();
+    int y = r.y() - m_cursorBreadcrumb->height() - 2;
+
+    m_cursorBreadcrumb->move(x, y);
+    m_cursorBreadcrumb->setVisible(true);
 }

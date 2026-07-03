@@ -1,6 +1,5 @@
 #include "AACSymbolGridScreen.h"
 #include "AACSymbolButton.h"
-#include "AACAccessibilityManager.h"
 #include "AACFramework.h"
 
 #include <QGridLayout>
@@ -13,11 +12,38 @@ AACSymbolGridScreen::AACSymbolGridScreen(AACAccessibilityManager* aac,
 {
     setScreenTitle("Symbols");
 
-    m_layout = new QGridLayout(this);
+auto* root = new QVBoxLayout(this);
+
+// Top row with Keyboard toggle
+auto* topRow = new QHBoxLayout();
+auto* keyboardBtn = new AACKeyButton(tr("Keyboard"), m_aac, this);
+topRow->addWidget(keyboardBtn);
+topRow->addStretch(1);
+root->addLayout(topRow);
+
+connect(keyboardBtn, &AACKeyButton::keyActivated,
+        this, [this]() { emit keyboardRequested(); });
+
+// Grid layout
+m_layout = new QGridLayout();
     m_layout->setSpacing(12);
     m_layout->setContentsMargins(12, 12, 12, 12);
+root->addLayout(m_layout);
+
+if (m_aac) {
+    connect(m_aac, &AACAccessibilityManager::highContrastChanged,
+            this, &AACSymbolGridScreen::onHighContrastChanged);
+}
 
     rebuildGrid();
+publishScanningLayout();
+}
+QString AACSymbolGridScreen::contextualHelp() const
+{
+    return tr("AACSymbolGrid. "
+               "Press F4 for Keyboard. "
+               "Press F6 to speak your message. "
+               "Press Escape to go back.");
 }
 
 // ------------------------------------------------------------
@@ -93,24 +119,44 @@ void AACSymbolGridScreen::rebuildGrid()
     }
 }
 
+void AACSymbolGridScreen::publishScanningLayout()
+{
+    if (!m_aac)
+        return;
+
+    QVector<QVector<QWidget*>> layout;
+
+    QVector<QWidget*> row;
+    for (auto* b : m_buttons)
+        row.append(b);
+
+    if (!row.isEmpty())
+        layout.append(row);
+
+    m_aac->setKeyboardScanningLayout(layout);
+}
+
 // ------------------------------------------------------------
 // Symbol activation
 // ------------------------------------------------------------
 
+void AACSymbolGridScreen::onHighContrastChanged(bool enabled)
+{
+    for (auto* b : m_buttons) {
+        if (!b) continue;
+        b->setProperty("aacHighContrast", enabled);
+        b->style()->unpolish(b);
+        b->style()->polish(b);
+        b->update();
+    }
+}
 void AACSymbolGridScreen::onSymbolClicked(const QString& label)
 {
     emit symbolActivated(label);
 
-    if (!m_aac)
-        return;
-
-    // Insert text into the AAC input controller
-    if (auto* ic = m_aac->inputController()) {
-        QMetaObject::invokeMethod(ic, "insertText",
-                                  Q_ARG(QString, label + " "));
+    if (m_aac && m_aac->predictionEngine()) {
+        const QString trimmed = label.trimmed();
+        if (!trimmed.isEmpty())
+            m_aac->predictionEngine()->learnUtterance(trimmed.toStdString());
     }
-
-    // Speak the symbol
-    if (auto* se = m_aac->speechEngine())
-        se->speak(label);
 }

@@ -5,20 +5,38 @@
     color: #FFFFFF;
 }
 
+/* AAC BLOCK TITLES */
+QLabel[aacBlockTitle="true"] {
+    font-size: 24px;
+    font-weight: 600;
+    padding-top: 12px;
+    padding-bottom: 4px;
+}
+
+/* AAC ROW SPACING (labels, sliders, combos, toggles) */
+QLabel, QComboBox, QSlider, AACToggle {
+    padding-top: 2px;
+    padding-bottom: 2px;
+}
+
 /* MAIN WINDOW BACKGROUND */
 QWidget {
     background-color: #000000;
 }
 
-/* BUTTONS */
+/* BUTTONS — unified size, spacing, and shape */
 QPushButton {
     background-color: #222222;
     border: 3px solid #FFFFFF;
     border-radius: 12px;
-    padding: 16px;
+    padding: 16px 20px;      /* unified internal size */
     font-weight: bold;
+    min-height: 56px;        /* unified button height */
+    margin-top: 4px;         /* unified external spacing */
+    margin-bottom: 4px;
 }
 
+/* BUTTON STATES */
 QPushButton:hover {
     background-color: #333333;
 }
@@ -27,33 +45,31 @@ QPushButton:pressed {
     background-color: #555555;
 }
 
-/* TRANSMIT BUTTON ACTIVE */
-QPushButton#transmitActive {
-    background-color: #00AA00;
-    border-color: #00FF00;
-    color: #FFFFFF;
-}
-
-/* AUDIO BANNER */
-#AudioBanner {
-    background-color: #444444;
-    border-bottom: 3px solid #FFFFFF;
-    padding: 10px;
-}
-
-/* MESSAGE BUBBLES */
-.MessageBubble {
-    background-color: #222222;
+/* COMBO BOX — unified with buttons */
+QComboBox {
+    padding: 6px 10px;
     border: 2px solid #FFFFFF;
+    border-radius: 8px;
+    min-height: 44px;        /* matches AACSpeechSettingsScreen */
+}
+
+/* SLIDERS — AAC-native thick groove + large handle */
+QSlider::groove:horizontal {
+    height: 6px;
+    background: #444444;
+    border-radius: 3px;
+}
+
+QSlider::handle:horizontal {
+    width: 24px;
+    height: 24px;
+    background: #FFFFFF;
     border-radius: 12px;
-    padding: 12px;
-    margin: 8px 0;
+    margin: -10px 0;         /* centers handle visually */
 }
 
-.MessageBubbleIncoming {
-    background-color: #003366;
-}
-
-.MessageBubbleSelf {
-    background-color: #006600;
+/* TOGGLES — unified spacing */
+AACToggle {
+    margin-top: 4px;
+    margin-bottom: 4px;
 }

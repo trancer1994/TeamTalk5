@@ -2,7 +2,6 @@
 
 #include <QVector>
 #include <QWidget>
-#include <QPushButton>
 #include <QtGlobal>
 #include <QObject>
 #include <QPointer>
@@ -13,6 +12,7 @@
 #include <QSoundEffect>
 #include <QTimer>
 #include <QStringList>
+#include <QQueue>
 
 #include <memory>
 
@@ -20,6 +20,22 @@
 #include "core/AACProfile.h"
 #include "core/AACProfileConfigTable.h"
 
+enum class HapticSemantic {
+    Background,   // scan ticks, low-importance pulses
+    Confirm,      // focus, dwell complete
+    Error         // errors, disconnects
+};
+enum class SpeechPriority {
+    Critical,   // errors, disconnects
+    System,     // connect, reconnect, join/leave
+    User,       // user text, predictions
+    Ambient     // hints, onboarding
+};
+
+struct SpeechItem {
+    QString text;
+    SpeechPriority priority;
+};
 class QWidget;
 class QLayout;
 class QEnterEvent;
@@ -29,8 +45,8 @@ class QPaintEvent;
 class QTextToSpeech;
 
 class AACLayoutEngine;
-class AACInputController;
 class AACFeedbackEngine;
+class AACKeyboardScreen;
 class AACSpeechEngine;
 class AACMessageHistory;
 class AACVocabularyManager;
@@ -46,12 +62,64 @@ public:
     virtual QLayout* rootLayout() const = 0;
     virtual QWidget* predictiveStripContainer() const = 0;
 };
+struct AACModeFlags
+{
+    // Core interaction modes
+    bool largeTargets      = false;
+    bool dwell             = false;
+    bool scanning          = false;
+    bool stepScanning = false;
+    bool reduceScanningSoundIntensity = false;
+    bool auditoryFeedback  = false;
+    bool hapticFeedback    = false;
+    bool deepWells         = false;
+bool feedbackEnabled = true;
+    bool oneHandLayout     = false;
+    bool ultraMinimal      = false;
+    bool predictiveStrip   = false;
+    bool highContrast      = false;
+
+    // AAC-native feedback modes
+    bool visualPulses      = true;   // visual confirmation pulses
+    bool talkBackMode      = false;  // Android TalkBack detected
+bool voiceOverMode = false;
+bool switchControlScanning = false;
+    bool fatigueMode       = false;  // softer/shorter feedback
+    bool globalFeedback    = false;  // whole-screen pulses instead of key-only
+
+    // Keyboard / symbol helpers
+    bool coreSymbolsFirst  = false;
+    bool curatedStripDwell = false;
+bool autoReconnect = false;
+bool helpMode = false;
+
+    // Timing
+    int dwellTimeMs        = 800;
+    int scanningSpeedMs    = 1100;
+    int touchHoldDelayMs   = 0;
+};
+struct UserProfile {
+    QString nickname;
+    int theme = 0;
+    int language = 0;
+};
 class AACAccessibilityManager : public QObject
 {
     Q_OBJECT
 
 public:
     AACAccessibilityManager(QObject* parent = nullptr);
+
+    // Singleton-style accessor for JNI bridge
+    static AACAccessibilityManager* instance() { return s_instance; }
+
+    void loadProfile();
+    void saveProfile();
+
+    // per‑user volume API (AAC‑side)
+    int userVolume(const QString& userId) const;
+    void setUserVolume(const QString& userId, int volume);
+    QMap<QString,int> allUserVolumes() const { return m_userVolumes; }
 
     QStringList categories() const;
     QVector<AACVocabItem> words(const QString& category) const;
@@ -61,32 +129,42 @@ public:
     void attachToAppLifecycle(QObject* app);
     void setKeyboardScanningLayout(const QVector<QVector<QWidget*>>& layout);
 
-    QString activeCategory() const;
-    AACProfile profile() const;
-    AACModeFlags modes() const;
-    AACDwellConfig dwellConfig() const;
-    AACScanningConfig scanningConfig() const;
-    AACLayoutConfig layoutConfig() const;
-    AACSpeechConfig speechConfig() const;
-    bool predictionEnabled() const;
+QString activeCategory() const          { return m_activeCategory; }
+AACProfile profile() const              { return m_profile; }
+AACModeFlags modes() const              { return m_modes; }
+AACSpeechConfig speechConfig() const    { return m_speechConfig; }
+bool predictionEnabled() const          { return m_predictionEnabled; }
+UserProfile& userProfile()              { return m_userProfile; }
+const UserProfile& userProfile() const  { return m_userProfile; }
+QString lastHost() const                { return m_lastHost; }
+quint16 lastPort() const                { return m_lastPort; }
+QString lastUsername() const            { return m_lastUsername; }
+QString lastPassword() const            { return m_lastPassword; }
+
+bool voiceOverDetected() const          { return m_voiceOverDetected; }
+bool switchControlDetected() const      { return m_switchControlDetected; }
+
+    void setLastHost(const QString& h)      { m_lastHost = h; }
+    void setLastPort(quint16 p)            { m_lastPort = p; }
+    void setLastUsername(const QString& u) { m_lastUsername = u; }
+    void setLastPassword(const QString& p) { m_lastPassword = p; }
     bool largeTargetsEnabled() const;
     bool highContrastEnabled() const;
     bool dwellEnabled() const;
 
-    AACInputController* inputController() const;
     AACFeedbackEngine* feedbackEngine() const;
     AACSpeechEngine* speechEngine() const;
     AACMessageHistory* history() const;
     AACPredictionEngine* predictionEngine() const;
     AACVocabularyManager* vocabularyManager() const;
 
+    // Live TalkBack update from Android (Java → C++)
+    void updateTalkBackFromPlatform(bool on);
+
 public slots:
     void setActiveCategory(const QString& category);
     void setProfile(AACProfile profile);
     void setModes(const AACModeFlags& modes);
-    void setDwellConfig(const AACDwellConfig& config);
-    void setScanningConfig(const AACScanningConfig& config);
-    void setLayoutConfig(const AACLayoutConfig& config);
     void setSpeechConfig(const AACSpeechConfig& config);
     void setPredictionEnabled(bool enabled);
 
@@ -94,13 +172,13 @@ public slots:
     void loadPredictionForUser(const QString& userId);
     void savePredictionForUser(const QString& userId);
 
+    void setFatigueMode(bool on);
+    void onVisualPulseRequested(int strength);
+
 signals:
     void activeCategoryChanged(const QString& category);
     void profileChanged(AACProfile profile);
     void modesChanged(const AACModeFlags& modes);
-    void dwellConfigChanged(const AACDwellConfig& config);
-    void scanningConfigChanged(const AACScanningConfig& config);
-    void layoutConfigChanged(const AACLayoutConfig& config);
     void speechConfigChanged(const AACSpeechConfig& config);
     void predictionEnabledChanged(bool enabled);
     void speechStarted(const QString& text);
@@ -112,16 +190,18 @@ signals:
     void keyboardScanningLayoutChanged(const QVector<QVector<QWidget*>>& layout);
 
 private:
+    QMap<QString,int> m_userVolumes;
     QString m_activeCategory;
     AACProfile m_profile = AACProfile::CoreVocabulary;
-
     AACModeFlags m_modes;
-    AACDwellConfig m_dwellConfig;
-    AACScanningConfig m_scanningConfig;
-    AACLayoutConfig m_layoutConfig;
+UserProfile m_userProfile;
+
+    QString m_lastHost;
+    quint16 m_lastPort = 0;
+    QString m_lastUsername;
+    QString m_lastPassword;
 
     AACLayoutEngine* m_layoutEngine = nullptr;
-    AACInputController* m_inputController = nullptr;
     AACFeedbackEngine* m_feedbackEngine = nullptr;
 
     AACSpeechEngine* m_speechEngine = nullptr;
@@ -136,6 +216,14 @@ private:
     QVector<QVector<QWidget*>> m_keyboardScanningLayout;
 
     std::unique_ptr<AACStorage> m_storage;
+
+    // Live TalkBack + other screenreader state
+    bool m_talkBackDetected = false;
+bool m_voiceOverDetected = false;
+bool m_switchControlDetected = false;
+
+    // Singleton pointer for JNI access
+    static AACAccessibilityManager* s_instance;
 };
 
 
@@ -159,55 +247,6 @@ private:
     AACAccessibilityManager* m_mgr = nullptr;
 };
 
-class AACInputController : public QObject
-{
-    Q_OBJECT
-
-public:
-    AACInputController(AACAccessibilityManager* mgr, QObject* parent = nullptr);
-
-    void attachScreen(AACScreenAdapter* screen);
-    void detachScreen(AACScreenAdapter* screen);
-
-    void startDwellOn(QWidget* w);
-    void stopDwellOn(QWidget* w);
-
-signals:
-    void dwellProgressChanged(QWidget* target, float progress);
-    void dwellActivated(QWidget* target);
-    void scanningFocused(QWidget* target);
-    void deepWellActivated(QWidget* target);
-
-public slots:
-    void onSwitchActivate();
-    void onSwitchNext();
-
-private slots:
-    void onDwellTick();
-    void onScanningTick();
-    void onKeyboardScanningLayoutChanged(const QVector<QVector<QWidget*>>& layout);
-
-private:
-    void rebuildScanningList();
-    void startDwell(QWidget* w);
-    void stopDwell();
-    void focusWidget(QWidget* w);
-    bool isDeepWell(QWidget* w) const;
-    void activateWidget(QWidget* w);
-
-    AACAccessibilityManager* m_mgr = nullptr;
-    AACScreenAdapter* m_currentScreen = nullptr;
-
-    QList<QPointer<QWidget>> m_scanningWidgets;
-    int m_scanningIndex = -1;
-
-    QTimer m_dwellTimer;
-    QElapsedTimer m_dwellElapsed;
-    QPointer<QWidget> m_dwellTarget;
-
-    QTimer m_scanningTimer;
-};
-
 class AACFeedbackEngine : public QObject
 {
     Q_OBJECT
@@ -219,46 +258,63 @@ public:
     void playFocus();
     void playError();
     void playDwellComplete();
+void playStepAdvance();
+    void playIncomingMessage();
+    void playPrivateMessage();
+void playUserJoin();
+void playUserLeave();
+void playTransmitOn();
+void playTransmitOff();
+
+
+void playScreenChange();
+void playMessageSent();
+void playAdjust();
+void playPredictiveUpdate();
+void playModeChange();
+void playPanelToggle();
+void playConnectionLost();
+void playConnectionRestored();
+void playServerError();
 
     void hapticSoft();
     void hapticStrong();
     void hapticError();
 
+signals:
+    void visualPulseRequested(int strength);
+
 private:
     void initSounds();
-    void doHaptic(int strength);
-
+    void playEffectWithFatigue(QSoundEffect& eff,
+                               float normalVol = 0.9f,
+                               float fatigueVol = 0.55f);
+    void doHaptic(int strength, HapticSemantic semantic = HapticSemantic::Confirm);
+    bool isScanningSound(const QSoundEffect& eff) const;
     AACAccessibilityManager* m_mgr = nullptr;
 
     QSoundEffect m_clickSound;
     QSoundEffect m_focusSound;
     QSoundEffect m_errorSound;
     QSoundEffect m_dwellSound;
-};
-
-class AACButton : public QPushButton
-{
-    Q_OBJECT
-
-public:
-    AACButton(AACAccessibilityManager* aac, QWidget* parent = nullptr);
-
-    void setDeepWell(bool enabled);
-    bool isDeepWell() const;
-
-    void setDwellProgress(float p);
-
-protected:
-    void enterEvent(QEnterEvent* e) override;
-    void leaveEvent(QEvent* e) override;
-    void focusInEvent(QFocusEvent* e) override;
-    void mousePressEvent(QMouseEvent* e) override;
-    void paintEvent(QPaintEvent* e) override;
-
-private:
-    AACAccessibilityManager* m_aac = nullptr;
-    bool m_deepWell = false;
-    float m_dwellProgress = 0.0f;
+QSoundEffect m_incomingMessageSound;
+QSoundEffect m_privateMessageSound;
+QSoundEffect m_transmitOnSound;
+QSoundEffect m_transmitOffSound;
+QSoundEffect m_userJoinSound;
+QSoundEffect m_userLeaveSound;
+QSoundEffect m_screenChangeSound;
+QSoundEffect m_messageSentSound;
+QSoundEffect m_adjustSound;
+QSoundEffect m_predictiveUpdateSound;
+QSoundEffect m_modeChangeSound;
+QSoundEffect m_panelToggleSound;
+QSoundEffect m_connectionLostSound;
+QSoundEffect m_connectionRestoredSound;
+QSoundEffect m_serverErrorSound;
+QSoundEffect m_backspaceSound;
+QSoundEffect m_enterSound;
+QSoundEffect m_actionSound;
 };
 
 class AACSpeechEngine : public QObject
@@ -268,7 +324,12 @@ class AACSpeechEngine : public QObject
 public:
     AACSpeechEngine(AACAccessibilityManager* mgr, QObject* parent = nullptr);
 
+bool shouldSpeakScanning() const;
     void speak(const QString& text);
+void speakNotification(const QString& text);
+void speakNotification(const QString& text, SpeechPriority p);
+    void speakScanningRow(const QString& label);
+    void speakScanningItem(const QString& label);
     void stop();
 
     void setVoice(const QString& voiceName);
@@ -291,11 +352,15 @@ private:
     void intelligibilityShaping(AACSpeechConfig& cfg);
     void lowIntensityShaping(AACSpeechConfig& cfg);
     void applyPresetShaping(AACSpeechConfig& cfg);
+    void speakQueued();
 
     AACAccessibilityManager* m_mgr = nullptr;
     QTextToSpeech* m_tts = nullptr;
     AACSpeechConfig m_cfg;
     AACSpeechConfig::SpeakAsYouTypeMode m_sayMode = AACSpeechConfig::SpeakNone;
+QQueue<SpeechItem> m_queue;
+bool m_speaking = false;
+SpeechPriority m_currentPriority = SpeechPriority::Ambient;
 };
 
 class AACMessageHistory : public QObject
@@ -318,4 +383,65 @@ signals:
 private:
     AACAccessibilityManager* m_mgr = nullptr;
     QStringList m_history;
+};
+class AACFramework : public QObject
+{
+    Q_OBJECT
+public:
+    explicit AACFramework(QObject* parent = nullptr);
+
+    //
+    // --- Core accessors used throughout your AAC stack ---
+    //
+
+    // Global AAC manager (modes, profile, prediction, speech, feedback)
+    AACAccessibilityManager* accessibilityManager() const { return m_accessibility; }
+
+    // Main keyboard screen
+    AACKeyboardScreen* keyboardScreen() const { return m_keyboardScreen; }
+
+    // Earcons / feedback engine
+    AACFeedbackEngine* earcons() const
+    {
+        return m_accessibility ? m_accessibility->feedbackEngine() : nullptr;
+    }
+
+    // Speech engine (TTS)
+    AACSpeechEngine* speechEngine() const
+    {
+        return m_accessibility ? m_accessibility->speechEngine() : nullptr;
+    }
+
+    // Prediction engine
+    AACPredictionEngine* predictionEngine() const
+    {
+        return m_accessibility ? m_accessibility->predictionEngine() : nullptr;
+    }
+
+    // Message history
+    AACMessageHistory* history() const
+    {
+        return m_accessibility ? m_accessibility->history() : nullptr;
+    }
+
+    // Convenience: expose AAC modes
+    AACModeFlags modes() const
+    {
+        return m_accessibility ? m_accessibility->modes() : AACModeFlags{};
+    }
+
+    // Convenience: expose AAC profile
+    AACProfile profile() const
+    {
+        return m_accessibility ? m_accessibility->profile() : AACProfile::CoreVocabulary;
+    }
+
+    //
+    // Unified earcon routing entry point
+    //
+    void feedback(AACEvent ev);
+
+private:
+    AACAccessibilityManager* m_accessibility = nullptr;
+    AACKeyboardScreen*       m_keyboardScreen = nullptr;
 };

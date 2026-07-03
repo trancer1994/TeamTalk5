@@ -1,15 +1,19 @@
 #pragma once
 
 #include <QWidget>
-#include <QPointer>
+#include <QVector>
 #include <QStringList>
+#include <QPointer>
 
-class AACFramework;
 class AACAccessibilityManager;
 class AACInputController;
 class AACKeyButton;
+class PredictiveStrip;
+class QVBoxLayout;
+class QHBoxLayout;
 class QGridLayout;
-class QLabel;
+class QTimer;
+class QKeyEvent;
 
 class AACKeyboardScreen : public QWidget
 {
@@ -20,58 +24,85 @@ public:
         LettersMode,
         NumbersMode,
         SymbolsMode,
-        EmojiMode,
         GridMode
     };
+    Q_ENUM(KeyboardMode)
 
-    explicit AACKeyboardScreen(AACFramework *framework,
-                               AACAccessibilityManager *accessibility,
-                               AACInputController *inputController,
-                               QWidget *parent = nullptr);
+    explicit AACKeyboardScreen(AACAccessibilityManager* accessibility,
+                               QWidget* parent = nullptr);
+    ~AACKeyboardScreen();
 
-    ~AACKeyboardScreen() override;
+    void setText(const QString& text);
+    void updateCursorContext(int cursorPosition, const QString& text);
+    void setPredictions(const QStringList& words);
 
-signals:
-    void characterTyped(const QString &text);
-    void backspacePressed();
-    void enterPressed();
-    void spacePressed();
-    void actionTriggered(const QString &action);
-    void modeChanged(KeyboardMode mode);
+    enum CursorPlacementMode {
+        CursorAfterSpace,         // Proloquo style
+        CursorAfterWord,          // LAMP style
+        CursorBetweenWordAndSpace, // TD Snap style
+    CursorAfterPunctuation       // ⭐ NEW
+    };
 
 public slots:
     void setMode(KeyboardMode mode);
-    void updateCursorContext(int cursorPosition, const QString &text);
     void onFreezeStateChanged(bool frozen);
     void onHighContrastChanged(bool enabled);
 
-    // Scanning
-    void onDwellTick();
+    // Curated strip scanning toggle
+    void setCuratedStripScanningEnabled(bool enabled) {
+        m_scanCuratedStrip = enabled;
+        updateUnifiedHighlight();
+    }
+
+    // Scanning entry points
     void startRowScan();
     void startColumnScan();
     void activateScanTarget();
 
-private slots:
-    void handleKeyButtonActivated(const QString &text);
-    void handleBackspaceClicked();
-    void handleEnterClicked();
-    void handleSpaceClicked();
+    // Step scanning controls
+    void handleStepNext();
+    void handleStepPrevious();
+    void handleStepSelect();
 
-    void handleModeLetters();
-    void handleModeNumbers();
-    void handleModeSymbols();
-    void handleModeEmoji();
-    void handleModeGrid();
+    // Dwell tick (for curated strip dwell)
+    void onDwellTick();
 
-    void handleEmojiPageLeft();
-    void handleEmojiPageRight();
+    // High‑level toggles (for external controller)
+    void setCoreSymbolsFirst(bool enabled);
+    void setCuratedStripDwellEnabled(bool enabled);
+    void setHighContrastEnabled(bool enabled);
+    void setFreezeEnabled(bool enabled);
+    void stopScan();
+    void setSemanticHighlight(const QString& tag);
 
-    void updateCursorHighlight(AACKeyButton *btn);
+signals:
+    void characterTyped(const QString& text);
+    void backspacePressed();
+    void spacePressed();
+    void enterPressed();
+    void actionTriggered(const QString& tag);
+    void symbolSemantic(const QString& tag);
+    void modeChanged(KeyboardMode mode);
+    void shiftStateChanged(bool shiftOn);
+    void predictionInserted(const QString& word);
+    void replaceText(const QString& text, int cursorPosition);
 
-private:
-    // UI construction
+    // Curated strip semantic context
+    void curatedStripSymbolsChanged(const QStringList& symbols);
+
+    // Grid navigation
+    void moveCursorLeft();
+    void moveCursorRight();
+    void clearRequested();
+    void deleteWordRequested();
+
+    void doneRequested();
+
+protected:
+    // UI builders
     void buildUi();
     void buildTopRow();
+    void buildCuratedSymbolStrip();
     void buildKeyboardArea();
     void buildControlRow();
 
@@ -79,92 +110,125 @@ private:
     void buildLettersLayout();
     void buildNumbersLayout();
     void buildSymbolsLayout();
-    void buildEmojiLayout();
     void buildGridLayout();
 
-    void rebuildKeyboard();
-    void clearKeyboardLayout();
-
-    // Visual state
-    void applyVisualSettings();
-    void updateHighlightForCursor();
-
-    // Scanning helpers
-    void clearScanHighlight();
-    void highlightScanRow();
-    void highlightScanColumn();
-    void advanceRowScan();
-    void advanceColumnScan();
-
-    // Emoji
-    void populateEmojiPages();
-    void updateEmojiPage();
-    int emojiPageCount() const;
-
-    // Keyboard content
+    // Keyboard content population
     void populateLettersRows();
     void populateNumbersRows();
     void populateSymbolsRows();
     void populateGridItems();
 
+    // Popup
+    QWidget* buildPopupForKey(AACKeyButton* btn);
+
+    // Key handling
+    void handleKeyButtonActivated(const QString& text);
+    void handleBackspaceActivated();
+    void handleEnterActivated();
+    void handleSpaceActivated();
+
+    // Auto-capitalization + spacing
+    bool shouldAutoCapitalize(const QString& text, int cursorPos) const;
+    QString applyAutoCapitalization(const QString& input) const;
+    QString applySmartSpacing(const QString& typed) const;
+
+    // Shift / CapsLock
+    void toggleShift();
+    void toggleCapsLock();
+
+    // Highlight helpers
+    QString currentTokenAtCursor() const;
+    void replaceTokenAtCursor(const QString& replacement);
+    void predictionChosen(const QString& word);
+
+    // Visual settings
+    void applyVisualSettings();
+
+    // Keyboard navigation via arrow keys
+    void keyPressEvent(QKeyEvent* e) override;
+
 private:
-    AACFramework *m_framework;
-    AACAccessibilityManager *m_accessibility;
-    AACInputController *m_inputController;
+    // Core managers
+    AACAccessibilityManager* m_accessibility = nullptr;
+    AACInputController* m_inputController = nullptr;
 
-    KeyboardMode m_mode;
-    bool m_frozen;
-    bool m_highContrast;
+    // Layouts
+    QVBoxLayout* m_mainLayout = nullptr;
+    QHBoxLayout* m_topRowLayout = nullptr;
+    QHBoxLayout* m_curatedStripLayout = nullptr;
+    QVBoxLayout* m_keyboardLayout = nullptr;
+    QHBoxLayout* m_controlRowLayout = nullptr;
+    QHBoxLayout* m_predictiveLayout = nullptr;
 
-    // Layout roots
-    QVBoxLayout *m_mainLayout;
-    QHBoxLayout *m_topRowLayout;
-    QVBoxLayout *m_keyboardLayout;
-    QHBoxLayout *m_controlRowLayout;
+    QWidget* m_topRowWidget = nullptr;
+    QWidget* m_curatedStripWidget = nullptr;
+    QWidget* m_keyboardWidget = nullptr;
+    QWidget* m_controlRowWidget = nullptr;
+    PredictiveStrip* m_predictiveStrip = nullptr;
 
-    QWidget *m_topRowWidget;
-    QWidget *m_keyboardWidget;
-    QWidget *m_controlRowWidget;
-    QWidget *m_predictiveContainer;
+    QGridLayout* m_keyboardGrid = nullptr;
 
-    // Mode buttons
-    AACKeyButton *m_lettersModeButton;
-    AACKeyButton *m_numbersModeButton;
-    AACKeyButton *m_symbolsModeButton;
-    AACKeyButton *m_emojiModeButton;
-    AACKeyButton *m_gridModeButton;
+    // Buttons
+    AACKeyButton* m_lettersModeButton = nullptr;
+    AACKeyButton* m_numbersModeButton = nullptr;
+    AACKeyButton* m_symbolsModeButton = nullptr;
+    AACKeyButton* m_gridModeButton = nullptr;
 
-    // Control row
-    AACKeyButton *m_spaceButton;
-    AACKeyButton *m_backspaceButton;
-    AACKeyButton *m_enterButton;
+    AACKeyButton* m_backspaceButton = nullptr;
+    AACKeyButton* m_spaceButton = nullptr;
+    AACKeyButton* m_enterButton = nullptr;
 
-    // Emoji navigation
-    QWidget *m_emojiNavWidget;
-    QHBoxLayout *m_emojiNavLayout;
-    QPushButton *m_emojiPrevPageButton;
-    QPushButton *m_emojiNextPageButton;
-    QLabel *m_emojiPageLabel;
+    AACKeyButton* m_shiftButtonLeft = nullptr;
+    AACKeyButton* m_shiftButtonRight = nullptr;
 
-    // Keyboard grid
-    QGridLayout *m_keyboardGrid;
-
-    // Data
-    QList<QStringList> m_lettersRows;
-    QList<QStringList> m_numbersRows;
-    QList<QStringList> m_symbolsRows;
-    QList<QStringList> m_emojiPages;
-    QStringList m_gridItems;
-
-    int m_currentEmojiPage;
-    int m_cursorPosition;
+    // State
+    CursorPlacementMode m_cursorPlacement = CursorAfterSpace;
     QString m_currentText;
+    int m_cursorPosition = 0;
 
-    // Highlight tracking
-    QPointer<AACKeyButton> m_currentHighlightedButton;
+    bool m_shift = false;
+    bool m_capsLock = false;
+    bool m_frozen = false;
+    bool m_highContrast = false;
+
+    // Curated strip scanning toggle
+    bool m_scanCuratedStrip = true;
 
     // Scanning
     bool m_scanning = false;
     int m_scanRow = 0;
-    int m_scanCol = -1;
+    int m_scanCol = 0;
+    QPointer<AACKeyButton> m_currentHighlightedButton;
+
+    // Scanning behaviour flags
+    bool m_coreSymbolsFirst = true;   // curated strip row first when scanning
+    bool m_curatedStripDwell = false; // dwell activation on curated strip
+QTimer* m_scanTimer = nullptr;
+
+    // Backspace repeat
+    QTimer* m_backspaceRepeatTimer = nullptr;
+
+    // Keyboard mode
+    KeyboardMode m_mode = LettersMode;
+
+    // Rows
+    QVector<QStringList> m_lettersRows;
+    QVector<QStringList> m_numbersRows;
+    QVector<QStringList> m_symbolsRows;
+    QStringList m_gridItems;
+
+    // Highlight helpers
+    AACKeyButton* highlightedButton() const;
+    void updateUnifiedHighlight();
+
+    void moveHighlightLeft();
+    void moveHighlightRight();
+    void moveHighlightUp();
+    void moveHighlightDown();
+
+    int maxRow() const;
+    int maxCol() const;
+
+    void moveHighlightToNextItem();
+    void moveHighlightToPreviousItem();
 };

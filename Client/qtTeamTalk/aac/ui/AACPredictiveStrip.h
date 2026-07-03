@@ -9,7 +9,7 @@
 class QHBoxLayout;
 class AACAccessibilityManager;
 class AACTextBar;
-class AACButton;
+class AACKeyButton;
 
 class PredictiveStrip : public QWidget
 {
@@ -19,6 +19,14 @@ public:
 
     void setManager(AACAccessibilityManager* mgr);
     void setTextBar(AACTextBar* tb);
+    std::vector<std::string> currentSuggestionList() const;
+    void clear();
+    void setSemanticContext(const QString& tag);
+    void clearSemanticContext();
+int m_maxSuggestions = 5;
+void setMaxSuggestions(int n);
+    QList<QWidget*> interactiveWidgets() const;
+    QList<QWidget*> primaryWidgets() const;
 
 public slots:
     void setContext(const QString& text);
@@ -32,16 +40,19 @@ private slots:
 
 private:
     void updateButtons(const std::vector<std::string>& suggestions);
-    void applyAACProperties(AACButton* btn);
-    void applyConfidenceStyling(AACButton* btn, float conf);
-    void applyAdaptiveSizing(AACButton* btn);
+void applyAACProperties(AACKeyButton* btn);
+void applyConfidenceStyling(AACKeyButton* btn, float conf, float semanticWeight);
+void applyAdaptiveSizing(AACKeyButton* btn);
 
     AACAccessibilityManager* m_mgr = nullptr;
     AACTextBar* m_textBar = nullptr;
     QHBoxLayout* m_layout = nullptr;
 
     QTimer m_debounceTimer;
+    QLabel* m_semanticPreviewLabel = nullptr;
+    QString m_currentSemanticTag;
     QString m_pendingContext;
+QStringList m_lastSuggestionList;
 
-    QList<AACButton*> m_buttons;
+QList<AACKeyButton*> m_buttons;
 };

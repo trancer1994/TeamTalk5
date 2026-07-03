@@ -4,6 +4,8 @@ endif()
 
 project (QtTeamTalk5 VERSION 1.0.0 LANGUAGES CXX)
 
+set(ANDROID_PACKAGE_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/android")
+
 function(set_output_dir target dir)
   set_target_properties (${target} PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY ${dir}
@@ -208,6 +210,7 @@ endif()
     if (MSVC)
       add_executable (${TEAMTALK_TARGET} WIN32 ${QTTEAMTALK_SOURCES})
 target_link_libraries(${TEAMTALK_TARGET} PRIVATE aac_symbols)
+  target_link_libraries(${TEAMTALK_TARGET} PRIVATE windowsapp)
 
       option (BUILD_TEAMTALK_CLIENT_QT_DEPLOY "Deploy Qt shared libraries into 'windeployqt' subdirectory" ON)
 
@@ -263,6 +266,7 @@ target_link_libraries(${TEAMTALK_TARGET} PRIVATE aac_symbols)
     elseif (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
       add_executable (${TEAMTALK_TARGET} ${QTTEAMTALK_SOURCES})
 target_link_libraries(${TEAMTALK_TARGET} PRIVATE aac_symbols)
+  target_link_libraries(${TEAMTALK_TARGET} PRIVATE "-framework AppKit")
       set_target_properties(${TEAMTALK_TARGET} PROPERTIES
         MACOSX_BUNDLE TRUE
         MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/Info.plist)

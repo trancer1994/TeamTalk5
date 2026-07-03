@@ -29,6 +29,7 @@ public:
     void moveCursorLeft();
     void moveCursorRight();
     void appendWord(const QString& word);
+    void updateCursorBreadcrumb(const QString& token, const QString& tag);
 
 signals:
     void cursorMoved(int position);
@@ -56,6 +57,7 @@ private:
     void connectSignals();
     void populateVoices();
     void rebuildHistoryMenu();
+    QLabel* m_cursorBreadcrumb = nullptr;
 
     AACAccessibilityManager* m_mgr = nullptr;
     AACSpeechEngine* m_speech = nullptr;

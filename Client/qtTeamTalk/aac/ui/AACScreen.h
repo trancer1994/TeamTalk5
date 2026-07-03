@@ -14,6 +14,9 @@ class AACScreen : public QWidget, public AACScreenAdapter {
 public:
     explicit AACScreen(AACAccessibilityManager* aac, QWidget* parent = nullptr);
 
+public:
+    void applyVisualPulse(int strength);
+
     // AACScreenAdapter interface
     QList<QWidget*> interactiveWidgets() const override;
     QList<QWidget*> primaryWidgets() const override;

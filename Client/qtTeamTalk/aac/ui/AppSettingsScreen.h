@@ -1,24 +1,24 @@
 #pragma once
 
-#include "AACScreen.h"
+#include "AACScreenBase.h"
 
 class QLineEdit;
 class QSpinBox;
-class QCheckBox;
 class QComboBox;
-class QPushButton;
 
-// Top-level App Settings screen (non-AAC-specific):
+class AACButton;
+class AACToggle;
+
+// Top-level App Settings screen (AAC-native):
 // - Nickname
-// - Server host
-// - Server port
-// - Auto-reconnect (placeholder)
+// - Auto-reconnect
 // - Theme
 // - Language
-class AppSettingsScreen : public AACScreen {
+class AppSettingsScreen : public AACScreenBase {
     Q_OBJECT
 public:
-    explicit AppSettingsScreen(AACAccessibilityManager* aac, QWidget* parent = nullptr);
+    explicit AppSettingsScreen(AACAccessibilityManager* aac,
+                               QWidget* parent = nullptr);
 
 signals:
     void backRequested();
@@ -27,13 +27,21 @@ private slots:
     void applySettings();
 
 private:
+    // --- Interactive fields ---
     QLineEdit*  m_nickname      = nullptr;
-    QLineEdit*  m_host          = nullptr;
-    QSpinBox*   m_port          = nullptr;
-    QCheckBox*  m_autoReconnect = nullptr;
+
+    AACToggle*  m_autoReconnect = nullptr;
+AACToggle* m_helpMode = nullptr;
+
     QComboBox*  m_theme         = nullptr;
     QComboBox*  m_language      = nullptr;
 
-    QPushButton* m_saveButton   = nullptr;
-    QPushButton* m_backButton   = nullptr;
+    // --- Action buttons ---
+    AACButton*  m_saveButton    = nullptr;
+    AACButton*  m_backButton    = nullptr;
+
+    // --- AACScreenBase overrides ---
+    QVector<QWidget*> interactiveWidgets() const override;
+    void focusFirstInteractive() override;
+    QLayout* rootLayout() const override;   // ⭐ ADD THIS LINE
 };

@@ -63,6 +63,10 @@ AACSpeechIdentityBlock::AACSpeechIdentityBlock(QWidget *parent)
     m_regionalLabel  = new QLabel("-", this);
 
     m_notesEdit = new QTextEdit(this);
+m_notesEdit->setInputMethodHints(Qt::ImhNoPredictiveText);
+m_notesEdit->setAcceptRichText(false);
+m_notesEdit->setFixedHeight(80);
+m_notesEdit->setUndoRedoEnabled(false);
     m_notesEdit->setPlaceholderText(tr("Identity notes…"));
 
     form->addRow(tr("Voice:"),   m_voiceNameLabel);
@@ -115,6 +119,10 @@ AACSpeechPresetsBlock::AACSpeechPresetsBlock(QWidget *parent)
     layout->addWidget(title);
 
     m_presetCombo = new QComboBox(this);
+m_presetCombo->setStyleSheet(
+    "QComboBox { combobox-popup: 0; }"
+    "QComboBox QAbstractItemView { animation: none; }"
+);
     m_presetDescription = new QLabel("-", this);
     m_presetDescription->setWordWrap(true);
 
@@ -161,6 +169,10 @@ AACSpeechVoiceBlock::AACSpeechVoiceBlock(QWidget *parent)
     layout->addWidget(title);
 
     m_voiceCombo = new QComboBox(this);
+m_voiceCombo->setStyleSheet(
+    "QComboBox { combobox-popup: 0; }"
+    "QComboBox QAbstractItemView { animation: none; }"
+);
     m_stabilityLabel = new QLabel("-", this);
     m_safeModeLabel = new QLabel("-", this);
     m_safeModeLabel->setStyleSheet("color: red; font-weight: bold;");
@@ -339,6 +351,10 @@ AACSpeechTypingBlock::AACSpeechTypingBlock(QWidget *parent)
     layout->addWidget(title);
 
     m_modeCombo = new QComboBox(this);
+m_modeCombo->setStyleSheet(
+    "QComboBox { combobox-popup: 0; }"
+    "QComboBox QAbstractItemView { animation: none; }"
+);
     m_modeCombo->addItem(tr("Off"));
     m_modeCombo->addItem(tr("Word"));
     m_modeCombo->addItem(tr("Sentence"));
@@ -496,8 +512,16 @@ AACSpeechHistoryRecoveryBlock::AACSpeechHistoryRecoveryBlock(QWidget *parent)
     layout->addWidget(title);
 
     m_historyCombo = new QComboBox(this);
+m_historyCombo->setStyleSheet(
+    "QComboBox { combobox-popup: 0; }"
+    "QComboBox QAbstractItemView { animation: none; }"
+);
     m_lockToggle   = new AACToggle(tr("Lock voice identity"), this);
     m_lockTimerCombo = new QComboBox(this);
+m_lockTimerCombo->setStyleSheet(
+    "QComboBox { combobox-popup: 0; }"
+    "QComboBox QAbstractItemView { animation: none; }"
+);
     m_lockTimerCombo->addItem(tr("No timer"), 0);
     m_lockTimerCombo->addItem(tr("5 minutes"), 5);
     m_lockTimerCombo->addItem(tr("15 minutes"), 15);
@@ -979,6 +1003,12 @@ void AACSpeechSettingsScreen::initTts()
             this, &AACSpeechSettingsScreen::onTtsStateChanged);
 }
 
+QString AACSpeechSettingsScreen::contextualHelp() const
+{
+    return tr("Speech Settings. "
+               "Press F1 for AAC Settings. "
+               "Press Escape to go back.");
+}
 void AACSpeechSettingsScreen::connectSignals()
 {
     connect(m_presetsBlock, &AACSpeechPresetsBlock::presetChanged,
@@ -1015,6 +1045,8 @@ void AACSpeechSettingsScreen::connectSignals()
             this, &AACSpeechSettingsScreen::onQrRequested);
     connect(m_resetBlock, &AACSpeechResetBlock::resetRequested,
             this, &AACSpeechSettingsScreen::onResetRequested);
+connect(m_typingBlock, &AACSpeechTypingBlock::fatigueModeChanged,
+        m_aac, &AACAccessibilityManager::setFatigueMode);
 }
 
 void AACSpeechSettingsScreen::reloadVoices()

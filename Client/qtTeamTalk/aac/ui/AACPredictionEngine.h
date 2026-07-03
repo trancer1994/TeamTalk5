@@ -1,8 +1,8 @@
-#ifndef AACPREDICTIONENGINE_H
-#define AACPREDICTIONENGINE_H
+#pragma once
 
 #include <QObject>
 #include <QString>
+#include <QStringList>
 #include <QSet>
 
 #include <string>
@@ -61,6 +61,16 @@ public:
     void freezePredictions();
     void unfreezePredictions();
 
+    // Semantic API (symbol / grid / AAC)
+    void setSemanticContext(const QString& tag);
+    void registerSymbolPhrases(const QString& tag,
+                               const QStringList& phrases);
+
+    QString currentSemanticTag() const { return m_currentSemanticTag; }
+
+    // For UI styling: how strongly a token is semantically boosted
+    float semanticWeightForToken(const std::string& token) const;
+
 private:
     // Context struct for Stage 17 (multi-word + punctuation context)
     struct Context {
@@ -86,12 +96,22 @@ private:
     // Stage 17: build context from prefix
     Context buildContext(const QStringList& parts) const;
 
-    // Stage 12+17+18: scoring helper
+    // Stage 12+17+18+14: scoring helper
     float scoreCandidate(const Context& ctx,
                          const std::string& candidate) const;
 
     // Stage 14: internal penalty helper
     void applyPenalty(const std::string& token, float basePenalty);
+
+    // Semantic helpers
+    bool  semanticActive() const;
+    void  decaySemanticIfNeeded() const;
+    float semanticWeightFor(const std::string& candidate) const;
+    void  inferSemanticFromUtterance(const QString& text);
+    void  loadDefaultSemanticPhrases();
+
+signals:
+    void semanticContextChanged(const QString& tag);
 
 private:
     AACAccessibilityManager* m_mgr = nullptr;
@@ -128,18 +148,18 @@ private:
         std::unordered_map<std::string, float>> m_sessionBigramBoost;
 
     // Stage 18: AAC context
-    QString m_currentCategory;          // e.g. "Food", "People"
-    std::string m_lastSymbolWord;       // last symbol's associated word (if any)
+    QString      m_currentCategory;    // e.g. "emotion", "social"
+    std::string  m_lastSymbolWord;     // last symbol's associated word (if any)
 
     // Stage 19: stability
     mutable std::vector<std::string> m_lastStable;
-    bool m_predictionsFrozen = false;
-    float m_stabilityThreshold = 0.7f;  // overlap threshold for hysteresis
+    bool   m_predictionsFrozen   = false;
+    float  m_stabilityThreshold  = 0.7f;  // overlap threshold for hysteresis
 
     // Stage 14: negative reinforcement state
     struct PenaltyConfig {
         float globalPenaltyFactor = 0.2f;
-        float decayFactor = 0.95f;
+        float decayFactor         = 0.95f;
         std::unordered_map<std::string, float> categoryPenalty;
     };
 
@@ -149,8 +169,14 @@ private:
 
     bool m_predictionBarVisible = false;
     std::chrono::steady_clock::time_point m_predictionBarShown;
-    int m_ignoreThresholdMs = 2000;
+    int  m_ignoreThresholdMs = 2000;
     std::string m_lastTopPrediction;
-};
 
-#endif // AACPREDICTIONENGINE_H
+    // Semantic context
+    QString m_currentSemanticTag;
+    mutable int m_semanticSetTick = 0;
+    int m_semanticDecayWindow = 50; // ticks of recencyCounter
+
+    // tag -> phrases (per-user + starter pack)
+    std::unordered_map<std::string, std::vector<std::string>> m_symbolPhrases;
+};

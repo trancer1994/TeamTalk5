@@ -40,6 +40,18 @@ void AACStorage::saveJson(const QJsonObject& obj) const
     f.write(QJsonDocument(obj).toJson(QJsonDocument::Indented));
 }
 
+int AACStorage::loadUserVolume(const QString& userId) const
+{
+    auto it = m_userVolumes.constFind(userId);
+    if (it == m_userVolumes.constEnd())
+        return -1;
+    return it.value();
+}
+
+void AACStorage::saveUserVolume(const QString& userId, int volume)
+{
+    m_userVolumes[userId] = volume;
+}
 void AACStorage::hydrate(AACAccessibilityManager& mgr)
 {
     const QJsonObject root = loadJson();
@@ -70,27 +82,6 @@ void AACStorage::hydrate(AACAccessibilityManager& mgr)
         mgr.setModes(m);
     }
 
-    if (root.contains("dwellConfig")) {
-        AACDwellConfig c;
-        const QJsonObject o = root["dwellConfig"].toObject();
-        c.dwellDurationMs = o["dwellDurationMs"].toInt();
-        mgr.setDwellConfig(c);
-    }
-
-    if (root.contains("scanningConfig")) {
-        AACScanningConfig c;
-        const QJsonObject o = root["scanningConfig"].toObject();
-        c.stepIntervalMs = o["stepIntervalMs"].toInt();
-        mgr.setScanningConfig(c);
-    }
-
-    if (root.contains("layoutConfig")) {
-        AACLayoutConfig c;
-        const QJsonObject o = root["layoutConfig"].toObject();
-        c.oneHandRightSide = o["oneHandRightSide"].toBool();
-        mgr.setLayoutConfig(c);
-    }
-
     if (root.contains("speechConfig")) {
         AACSpeechConfig c;
         const QJsonObject o = root["speechConfig"].toObject();
@@ -104,6 +95,19 @@ void AACStorage::hydrate(AACAccessibilityManager& mgr)
         c.lowIntensity       = o["lowIntensity"].toBool();
         mgr.setSpeechConfig(c);
     }
+
+if (root.contains("userVolumes")) {
+    const QJsonObject o = root["userVolumes"].toObject();
+    m_userVolumes.clear();
+    for (auto it = o.begin(); it != o.end(); ++it) {
+        m_userVolumes.insert(it.key(), it.value().toInt());
+    }
+
+    // Push into AACAccessibilityManager
+    for (auto it = m_userVolumes.begin(); it != m_userVolumes.end(); ++it) {
+        mgr.setUserVolume(it.key(), it.value());
+    }
+}
 }
 
 void AACStorage::persist(const AACAccessibilityManager& mgr)
@@ -114,6 +118,14 @@ void AACStorage::persist(const AACAccessibilityManager& mgr)
     root["profile"]           = static_cast<int>(mgr.profile());
     root["predictionEnabled"] = mgr.predictionEnabled();
 
+{
+    QJsonObject o;
+    const QMap<QString,int> vols = mgr.allUserVolumes();
+    for (auto it = vols.begin(); it != vols.end(); ++it) {
+        o[it.key()] = it.value();
+    }
+    root["userVolumes"] = o;
+}
     {
         const AACModeFlags m = mgr.modes();
         QJsonObject o;
@@ -127,27 +139,6 @@ void AACStorage::persist(const AACAccessibilityManager& mgr)
         o["ultraMinimal"]     = m.ultraMinimal;
         o["predictiveStrip"]  = m.predictiveStrip;
         root["modes"] = o;
-    }
-
-    {
-        const AACDwellConfig c = mgr.dwellConfig();
-        QJsonObject o;
-        o["dwellDurationMs"] = c.dwellDurationMs;
-        root["dwellConfig"] = o;
-    }
-
-    {
-        const AACScanningConfig c = mgr.scanningConfig();
-        QJsonObject o;
-        o["stepIntervalMs"] = c.stepIntervalMs;
-        root["scanningConfig"] = o;
-    }
-
-    {
-        const AACLayoutConfig c = mgr.layoutConfig();
-        QJsonObject o;
-        o["oneHandRightSide"] = c.oneHandRightSide;
-        root["layoutConfig"] = o;
     }
 
     {

@@ -1,4 +1,6 @@
 #include "AACScreen.h"
+#include <QGraphicsOpacityEffect>
+#include <QPropertyAnimation>
 
 AACScreen::AACScreen(AACAccessibilityManager* aac, QWidget* parent)
     : QWidget(parent)
@@ -6,6 +8,22 @@ AACScreen::AACScreen(AACAccessibilityManager* aac, QWidget* parent)
 {
 }
 
+void AACScreen::applyVisualPulse(int strength)
+{
+    int duration = (strength == 1 ? 80 : strength == 2 ? 120 : 160);
+
+    auto* eff = new QGraphicsOpacityEffect(this);
+    this->setGraphicsEffect(eff);
+
+    auto* anim = new QPropertyAnimation(eff, "opacity");
+    anim->setDuration(duration);
+    anim->setStartValue(0.0);
+    anim->setEndValue(1.0);
+    anim->setEasingCurve(QEasingCurve::OutQuad);
+
+    connect(anim, &QPropertyAnimation::finished, eff, &QObject::deleteLater);
+    anim->start(QAbstractAnimation::DeleteWhenStopped);
+}
 void AACScreen::registerInteractive(QWidget* w, bool primary)
 {
     if (!w)

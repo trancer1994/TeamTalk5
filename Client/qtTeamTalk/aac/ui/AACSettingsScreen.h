@@ -7,6 +7,7 @@ class QVBoxLayout;
 class QHBoxLayout;
 class QComboBox;
 class QSlider;
+class QLabel;
 class AACAccessibilityManager;
 class AACToggle;
 class AACButton;
@@ -20,6 +21,7 @@ public:
                                QWidget* parent = nullptr);
 
 signals:
+    void transmitModeChanged(int modeIndex);
     void backRequested();
     void speechSettingsRequested();
 
@@ -53,34 +55,72 @@ private:
 
     QVBoxLayout* m_rootLayout = nullptr;
 
-    // Core access toggles
+    //
+    // ACCESS
+    //
     AACToggle* m_largeTargets   = nullptr;
     AACToggle* m_dwell          = nullptr;
     AACToggle* m_scanning       = nullptr;
-    AACToggle* m_auditory       = nullptr;
-    AACToggle* m_haptics        = nullptr;
-    AACToggle* m_ultraMinimal   = nullptr;
     AACToggle* m_oneHand        = nullptr;
-    AACToggle* m_predictive     = nullptr;
+    AACToggle* m_ultraMinimal   = nullptr;
 
-    // Extra layout / behaviour
-    QComboBox* m_gridSize       = nullptr;  // Large / Medium / Dense
-    QComboBox* m_highlightStyle = nullptr;  // Ring / Glow / High contrast / Invert
-    QSlider*   m_scanningSpeed  = nullptr;  // Only meaningful if scanning on
-    QSlider*   m_touchHoldDelay = nullptr;  // Touch hold delay
+    // Access timing controls (indented)
+    QSlider*   m_dwellTime      = nullptr;
+    QSlider*   m_scanningSpeed  = nullptr;
+    QSlider*   m_touchHoldDelay = nullptr;
 
     // One‑hand side selector
     QComboBox* m_oneHandSide    = nullptr;
 
-    // Buttons
-    AACButton* m_resetButton          = nullptr;
+    //
+    // FEEDBACK
+    //
+    AACToggle* m_auditory       = nullptr;
+    AACToggle* m_haptics        = nullptr;
+    QComboBox* m_highlightStyle = nullptr;
+
+    //
+    // PREDICTION
+    //
+    AACToggle* m_predictive        = nullptr;
+    AACToggle* m_coreSymbolsFirst  = nullptr;
+    AACToggle* m_curatedStripDwell = nullptr;
+
+    //
+    // LAYOUT
+    //
+    QComboBox* m_gridSize       = nullptr;
+
+    //
+    // Communication
+    //
+
+AACToggle* m_autoReconnect = nullptr;
+AACToggle* m_speakIncoming = nullptr;
+QComboBox* m_transmitMode = nullptr;
+    //
+    // ACCESS TEST AREA
+    //
+    QVector<AACButton*> m_testButtons;
+
+    //
+    // PRESETS
+    //
     AACButton* m_presetTouch          = nullptr;
     AACButton* m_presetEyeGaze        = nullptr;
     AACButton* m_presetSwitch         = nullptr;
     AACButton* m_presetCognitiveLow   = nullptr;
     AACButton* m_presetRecommended    = nullptr;
+
+    //
+    // NAVIGATION
+    //
+    AACButton* m_resetButton          = nullptr;
     AACButton* m_speechSettingsButton = nullptr;
     AACButton* m_backButton           = nullptr;
 
+    //
+    // INTERACTIVE LIST
+    //
     QVector<QWidget*> m_interactive;
 };
