@@ -44,5 +44,5 @@ signals:
     void requestJumpToIndex(int index);
 
 private:
-    AACConversationRecorder* m_rec;
+    AACConversationRecorderQtAdapter* m_rec;
 };

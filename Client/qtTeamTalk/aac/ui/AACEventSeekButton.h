@@ -13,7 +13,7 @@ AACEventSeekButton(const AACConversationRecorderQtAdapter::Event& ev,
 
 signals:
     void seekToEvent(int index);
-    void showEventDetails(const AACConversationRecorder::Event& ev);
+    void showEventDetails(const AACConversationRecorderQtAdapter::Event& ev);
 
 private:
 AACConversationRecorderQtAdapter::Event m_event;

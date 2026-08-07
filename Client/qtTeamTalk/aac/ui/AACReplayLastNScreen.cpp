@@ -19,7 +19,7 @@ AACReplayLastNScreen::AACReplayLastNScreen(
     // Helper lambda to slice last N events
     //
     auto sliceLast = [&](int n) {
-        QVector<AACConversationRecorderQtAdapter::Event> out;
+        QVector<AACConversationRecorderQtAdapterQtAdapter::Event> out;
         int start = qMax(0, events.size() - n);
         for (int i = start; i < events.size(); ++i)
             out << events[i];

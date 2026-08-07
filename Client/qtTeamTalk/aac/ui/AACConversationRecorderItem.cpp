@@ -1,7 +1,7 @@
 #include "AACConversationRecorderItem.h"
 
 AACConversationRecorderItem::AACConversationRecorderItem(
-        const AACConversationRecorder::Event& ev,
+        const AACConversationRecorderQtAdapter::Event& ev,
         QWidget* parent)
     : AACKeyButton(parent)
     , m_event(ev)
@@ -13,10 +13,10 @@ m_timestamp = ev.timestamp.toString("hh:mm:ss");
 QString base = ev.text;
 if (base.isEmpty()) {
     switch (ev.type) {
-    case AACConversationRecorder::EventType::AACMessageSent:     base = tr("AAC message sent"); break;
-    case AACConversationRecorder::EventType::AACMessageSpoken:   base = tr("AAC message spoken"); break;
-    case AACConversationRecorder::EventType::AudioFromUser:      base = tr("Audio from user"); break;
-    case AACConversationRecorder::EventType::AudioToUser:        base = tr("Audio to user"); break;
+    case AACConversationRecorderQtAdapter::EventType::AACMessageSent:     base = tr("AAC message sent"); break;
+    case AACConversationRecorderQtAdapter::EventType::AACMessageSpoken:   base = tr("AAC message spoken"); break;
+    case AACConversationRecorderQtAdapter::EventType::AudioFromUser:      base = tr("Audio from user"); break;
+    case AACConversationRecorderQtAdapter::EventType::AudioToUser:        base = tr("Audio to user"); break;
     default: base = tr("Event");
     }
 }

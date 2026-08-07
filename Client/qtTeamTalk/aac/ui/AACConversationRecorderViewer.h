@@ -26,13 +26,13 @@ signals:
     void requestPlayConversation();
 
     // Show metadata for a specific event
-    void requestShowDetails(const AACConversationRecorder::Event& ev);
+    void requestShowDetails(const AACConversationRecorderQtAdapter::Event& ev);
 
     // Export entire conversation audio
     void requestExportConversation();
 
 private slots:
-    void onConversationUpdated(const QVector<AACConversationRecorder::Event>& events);
+    void onConversationUpdated(const QVector<AACConversationRecorderQtAdapter::Event>& events);
 
 private:
     AACConversationRecorderQtAdapter* m_recorder = nullptr;
@@ -49,7 +49,7 @@ AACKeyButton* m_summaryButton = nullptr;
 AACKeyButton* m_replayOptionsButton = nullptr;
 AACKeyButton* m_exportOptionsButton = nullptr;
 void scrollToIndex(int index);
-void scrollToEvent(const AACConversationRecorder::Event& ev);
+void scrollToEvent(const AACConversationRecorderQtAdapter::Event& ev);
     QVector<int> m_jumpHistory;
     AACKeyButton* m_semanticNavButton = nullptr;
     AACKeyButton* m_bookmarkManagerButton = nullptr;

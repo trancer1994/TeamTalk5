@@ -14,7 +14,7 @@ public:
                                   QWidget* parent = nullptr);
 
 signals:
-    void requestReplayEvents(const QVector<AACConversationRecorder::Event>& events);
+    void requestReplayEvents(const QVector<AACConversationRecorderQtAdapter::Event>& events);
 
 private:
     AACConversationRecorderQtAdapter* m_recorder = nullptr;

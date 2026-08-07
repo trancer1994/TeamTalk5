@@ -230,7 +230,7 @@ void MainWindow::showConversationRecorder()
     m_stack->addWidget(viewer);
     m_stack->setCurrentWidget(viewer);
 }
-void MainWindow::showRecorderEventDetails(const AACConversationRecorder::Event& ev)
+void MainWindow::showRecorderEventDetails(const AACConversationRecorderQtAdapter::Event& ev)
 {
     // You can show this inline in a side panel, or in your AACScreenBase footer.
     // Example:

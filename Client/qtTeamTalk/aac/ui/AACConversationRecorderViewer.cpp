@@ -168,7 +168,7 @@ root->addLayout(controls);
                 this, &AACConversationRecorderViewer::onConversationUpdated);
 
 connect(this, &AACConversationRecorderViewer::requestShowDetails,
-        this, [this](const AACConversationRecorder::Event& ev) {
+        this, [this](const AACConversationRecorderQtAdapter::Event& ev) {
             auto* screen = new AACEventMetadataScreen(ev, aacManager(), this);
 
             // ⭐ Connect bookmark jump
@@ -176,7 +176,7 @@ connect(this, &AACConversationRecorderViewer::requestShowDetails,
                     this, &AACConversationRecorderViewer::scrollToEvent);
 
 connect(screen, &AACEventMetadataScreen::requestToggleBookmark,
-        this, [this](const AACConversationRecorder::Event& ev2) {
+        this, [this](const AACConversationRecorderQtAdapter::Event& ev2) {
             toggleBookmarkForEvent(ev2);
         });
             screen->show();
@@ -193,7 +193,7 @@ connect(this, &AACConversationRecorderViewer::requestExportConversation,
 }
 
 void AACConversationRecorderViewer::onConversationUpdated(
-        const QVector<AACConversationRecorder::Event>& events)
+        const QVector<AACConversationRecorderQtAdapter::Event>& events)
 {
 m_seekButtons.clear();
     for (auto* item : m_items)
@@ -220,14 +220,14 @@ m_seekButtons.clear();
 
         // Show event metadata
 connect(item, &AACConversationRecorderItem::requestDetails,
-        this, [this](const AACConversationRecorder::Event& ev) {
+        this, [this](const AACConversationRecorderQtAdapter::Event& ev) {
             auto* screen = new AACEventMetadataScreen(ev, aacManager(), this);
 
             connect(screen, &AACEventMetadataScreen::requestJumpToEvent,
                     this, &AACConversationRecorderViewer::scrollToEvent);
 
             connect(screen, &AACEventMetadataScreen::requestToggleBookmark,
-                    this, [this](const AACConversationRecorder::Event& ev2) {
+                    this, [this](const AACConversationRecorderQtAdapter::Event& ev2) {
                         toggleBookmarkForEvent(ev2);
                     });
             screen->show();
@@ -266,7 +266,7 @@ connect(item, &AACConversationRecorderItem::requestDetails,
 m_seekButtons << seekButton;
 
         connect(seekButton, &AACEventSeekButton::seekToEvent,
-                m_recorder, &AACConversationRecorder::playEventAudio);
+                m_recorder, &AACConversationRecorderQtAdapter::playEventAudio);
 
         connect(seekButton, &AACEventSeekButton::showEventDetails,
                 this, &AACConversationRecorderViewer::requestShowDetails);
@@ -279,7 +279,7 @@ m_seekButtons << seekButton;
     //
 m_jumpLastMessage = new AACJumpLastMessageButton(this);
 connect(m_jumpLastMessage, &AACJumpLastMessageButton::jumpToLastAACMessage,
-        m_recorder, &AACConversationRecorder::playLastAACMessage);
+        m_recorder, &AACConversationRecorderQtAdapter::playLastAACMessage);
 m_listLayout->addWidget(m_jumpLastMessage);
 
     //
@@ -287,7 +287,7 @@ m_listLayout->addWidget(m_jumpLastMessage);
     //
 m_jumpLastAudioFrame = new AACJumpLastAudioFrameButton(this);
 connect(m_jumpLastAudioFrame, &AACJumpLastAudioFrameButton::jumpToLastAudioFrame,
-        m_recorder, &AACConversationRecorder::playLastAudioFrame);
+        m_recorder, &AACConversationRecorderQtAdapter::playLastAudioFrame);
 m_listLayout->addWidget(m_jumpLastAudioFrame);
 
 //
@@ -446,7 +446,7 @@ void AACConversationRecorderViewer::rebuildListFromIndices(const QList<int>& ind
         m_seekButtons << seekButton;
 
         connect(seekButton, &AACEventSeekButton::seekToEvent,
-                m_recorder, &AACConversationRecorder::playEventAudio);
+                m_recorder, &AACConversationRecorderQtAdapter::playEventAudio);
 
         connect(seekButton, &AACEventSeekButton::showEventDetails,
                 this, &AACConversationRecorderViewer::requestShowDetails);
@@ -480,7 +480,7 @@ void AACConversationRecorderViewer::scrollToIndex(int index)
     // Scroll so the target widget is visible
     m_scrollArea->ensureWidgetVisible(target, 20, 20);
 }
-void AACConversationRecorderViewer::scrollToEvent(const AACConversationRecorder::Event& ev)
+void AACConversationRecorderViewer::scrollToEvent(const AACConversationRecorderQtAdapter::Event& ev)
 {
     // Find the event index
     const auto& events = m_recorder->events();
@@ -492,7 +492,7 @@ void AACConversationRecorderViewer::scrollToEvent(const AACConversationRecorder:
     }
 }
 void AACConversationRecorderViewer::toggleBookmarkForEvent(
-        const AACConversationRecorder::Event& ev)
+        const AACConversationRecorderQtAdapter::Event& ev)
 {
     const auto& events = m_recorder->events();
     for (int i = 0; i < events.size(); ++i) {
@@ -507,7 +507,7 @@ void AACConversationRecorderViewer::toggleBookmarkForEvent(
     }
 }
 void AACConversationRecorderViewer::toggleBookmarkForEvent(
-        const AACConversationRecorder::Event& ev)
+        const AACConversationRecorderQtAdapter::Event& ev)
 {
     const auto& events = m_recorder->events();
     for (int i = 0; i < events.size(); ++i) {

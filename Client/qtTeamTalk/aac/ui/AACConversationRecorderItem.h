@@ -7,15 +7,15 @@ class AACConversationRecorderItem : public AACKeyButton
     Q_OBJECT
 
 public:
-    AACConversationRecorderItem(const AACConversationRecorder::Event& ev,
+    AACConversationRecorderItem(const AACConversationRecorderQtAdapter::Event& ev,
                                 QWidget* parent = nullptr);
 
 signals:
     void requestPlay();
-    void requestDetails(const AACConversationRecorder::Event& ev);
+    void requestDetails(const AACConversationRecorderQtAdapter::Event& ev);
     void requestExport();
 
 private:
-    AACConversationRecorder::Event m_event;
+    AACConversationRecorderQtAdapter::Event m_event;
 QString m_timestamp;
 };
