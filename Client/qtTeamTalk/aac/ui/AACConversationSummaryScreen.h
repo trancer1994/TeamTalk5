@@ -1,7 +1,7 @@
 #pragma once
 
 #include "AACScreenBase.h"
-#include "AACConversationRecorder.h"
+#include "AACConversationRecorderQtAdapter.h"
 #include "AACKeyButton.h"
 
 class AACConversationSummaryScreen : public AACScreenBase
@@ -10,7 +10,7 @@ class AACConversationSummaryScreen : public AACScreenBase
 
 public:
     explicit AACConversationSummaryScreen(
-        const QVector<AACConversationRecorder::Event>& events,
+        const QVector<AACConversationRecorderQtAdapter::Event>& events,
         AACAccessibilityManager* aac,
         QWidget* parent = nullptr);
 
@@ -19,7 +19,7 @@ signals:
     void requestExportConversation();
 
 private:
-    QVector<AACConversationRecorder::Event> m_events;
+    QVector<AACConversationRecorderQtAdapter::Event> m_events;
 
     AACKeyButton* m_labelTotal = nullptr;
     AACKeyButton* m_labelAACSent = nullptr;

@@ -1,6 +1,6 @@
 #pragma once
 #include "AACScreenBase.h"
-#include "AACConversationRecorder.h"
+#include "AACConversationRecorderQtAdapter.h"
 #include "AACKeyButton.h"
 
 class AACBookmarkManagerScreen : public AACScreenBase

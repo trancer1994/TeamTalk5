@@ -2,7 +2,7 @@
 #include <QVBoxLayout>
 
 AACConversationSummaryScreen::AACConversationSummaryScreen(
-        const QVector<AACConversationRecorder::Event>& events,
+        const QVector<AACConversationRecorderQtAdapter::Event>& events,
         AACAccessibilityManager* aac,
         QWidget* parent)
     : AACScreenBase(aac, parent)
@@ -24,10 +24,10 @@ AACConversationSummaryScreen::AACConversationSummaryScreen(
 
     for (const auto& ev : events) {
         switch (ev.type) {
-        case AACConversationRecorder::EventType::AACMessageSent:     aacSent++; break;
-        case AACConversationRecorder::EventType::AACMessageSpoken:   aacSpoken++; break;
-        case AACConversationRecorder::EventType::AudioToUser:        audioToUser++; break;
-        case AACConversationRecorder::EventType::AudioFromUser:      audioFromUser++; break;
+        case AACConversationRecorderQtAdapter::EventType::AACMessageSent:     aacSent++; break;
+        case AACConversationRecorderQtAdapter::EventType::AACMessageSpoken:   aacSpoken++; break;
+        case AACConversationRecorderQtAdapter::EventType::AudioToUser:        audioToUser++; break;
+        case AACConversationRecorderQtAdapter::EventType::AudioFromUser:      audioFromUser++; break;
         default: break;
         }
 
