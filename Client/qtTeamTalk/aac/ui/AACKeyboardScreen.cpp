@@ -1,7 +1,7 @@
 #include "AACKeyboardScreen.h"
 #include "AACKeyButton.h"
 #include "AACFramework.h"
-
+#include "AACInputController.h"
 #include <QGridLayout>
 #include <QHBoxLayout>
 #include <QVBoxLayout>
@@ -221,6 +221,8 @@ AACKeyboardScreen::AACKeyboardScreen(AACAccessibilityManager* accessibility,
     : QWidget(parent)
     , m_accessibility(accessibility)
 {
+m_inputController = new AACInputController(m_accessibility, this);
+
     populateLettersRows();
     populateNumbersRows();
     populateSymbolsRows();
@@ -229,6 +231,22 @@ AACKeyboardScreen::AACKeyboardScreen(AACAccessibilityManager* accessibility,
     buildUi();
     rebuildKeyboard();
     applyVisualSettings();
+
+m_inputController->setKeyboardLayout(m_keyboardGrid);
+
+    QVector<QVector<QWidget*>> layoutVector = m_inputController->extractLayoutVector(m_keyboardGrid);
+m_accessibility->setKeyboardScanningLayout(layoutVector);
+
+connect(m_inputController, &AACInputController::highlightChanged,
+        this, &AACKeyboardScreen::updateUnifiedHighlight);
+
+connect(m_inputController, &AACInputController::activationRequested,
+        this, [this](AACKeyButton* btn) {
+            handleKeyButtonActivated(btn->text());
+        });
+
+connect(m_inputController, &AACInputController::semanticHighlightChanged,
+        this, &AACKeyboardScreen::setSemanticHighlight);
 
 QString AACKeyboardScreen::contextualHelp() const
 {
@@ -353,12 +371,6 @@ m_keyboardWidget->setObjectName("keyboardWidget");
 
     buildControlRow();
     m_mainLayout->addWidget(m_controlRowWidget);
-// --- Auto-scan timer (AAC-native) ---
-m_scanTimer = new QTimer(this);
-m_scanTimer->setSingleShot(false);
-
-connect(m_scanTimer, &QTimer::timeout,
-        this, &AACKeyboardScreen::moveHighlightToNextItem);
 }
 void AACKeyboardScreen::buildTopRow()
 {
@@ -395,6 +407,11 @@ m_predictiveStrip->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred)
 
 connect(m_predictiveStrip, &PredictiveStrip::suggestionChosen,
         this, &AACKeyboardScreen::predictionChosen);
+
+AAC::setElementHelp(m_lettersModeButton, tr("Switch to letters"));
+AAC::setElementHelp(m_numbersModeButton, tr("Switch to numbers"));
+AAC::setElementHelp(m_symbolsModeButton, tr("Switch to symbols"));
+AAC::setElementHelp(m_gridModeButton,    tr("Switch to grid symbols"));
 }
 // =====================================================
 //  Curated Symbol Strip
@@ -419,34 +436,19 @@ void AACKeyboardScreen::buildCuratedSymbolStrip()
         const QString tag = semanticTagForSymbol(sym);
 btn->setObjectName("curatedSymbol_" + tag);
 
-        connect(btn, &AACKeyButton::keyActivated, this, [this, sym, tag]() {
-
-    // --- AAC multimodal feedback ---
-m_accessibility->feedback()->playAction();
-
-            if (!tag.isEmpty()) {
-                emit actionTriggered(tag);
-                emit symbolSemantic(tag);
-            }
-            emit characterTyped(sym + " ");
+connect(btn, &AACKeyButton::keyActivated,
+        this, [this, btn]() {
+            m_inputController->handleActivation(btn);
         });
 
 connect(btn, &AACKeyButton::hovered,
         this, [this, btn]() {
-            if (!m_curatedStripLayout)
-                return;
-
-            int index = m_curatedStripLayout->indexOf(btn);
-            if (index < 0)
-                return;
-
-            m_scanRow = 0;      // curated strip row
-            m_scanCol = index;
-
-            updateUnifiedHighlight();
+            m_inputController->handleHoverKey(btn);
         });
 
-        m_curatedStripLayout->addWidget(btn);
+AAC::setSemanticTag(btn, tag);
+AAC::setElementHelp(btn, tr("Symbol: %1").arg(sym));
+m_curatedStripLayout->addWidget(btn);
     }
 
     applyVisualSettings();
@@ -498,7 +500,6 @@ m_controlRowLayout->addWidget(doneButton);
     connect(m_backspaceButton, &AACKeyButton::pressed, this, [this]() {
         emit backspacePressed();
         QTimer::singleShot(400, this, [this]() {
-m_accessibility->feedback()->playBackspace();
             if (m_backspaceButton->isDown())
                 m_backspaceRepeatTimer->start();
         });
@@ -559,7 +560,6 @@ void AACKeyboardScreen::rebuildKeyboard()
 
 updateUnifiedHighlight();
 }
-
 // =====================================================
 //  Layout builders
 // =====================================================
@@ -591,21 +591,10 @@ connect(btn, &AACKeyButton::hovered,
         this, [this, btn]() {
             if (!m_keyboardGrid)
                 return;
-
-            int index = m_keyboardGrid->indexOf(btn);
-            if (index < 0)
-                return;
-
-            int cols = m_keyboardGrid->columnCount();
-            int gridRow = index / cols;
-            int gridCol = index % cols;
-
-            m_scanRow = gridRow + (m_scanCuratedStrip ? 1 : 0);
-            m_scanCol = gridCol;
-
-            updateUnifiedHighlight();
+connect(btn, &AACKeyButton::hovered,
+        this, [this, btn]() {
+            m_inputController->handleHoverKey(btn);
         });
-
             m_keyboardGrid->addWidget(btn, row, col++);
         }
 
@@ -636,21 +625,7 @@ btn->setObjectName("key_" + key);
                     this, &AACKeyboardScreen::handleKeyButtonActivated);
 connect(btn, &AACKeyButton::hovered,
         this, [this, btn]() {
-            if (!m_keyboardGrid)
-                return;
-
-            int index = m_keyboardGrid->indexOf(btn);
-            if (index < 0)
-                return;
-
-            int cols = m_keyboardGrid->columnCount();
-            int gridRow = index / cols;
-            int gridCol = index % cols;
-
-            m_scanRow = gridRow + (m_scanCuratedStrip ? 1 : 0);
-            m_scanCol = gridCol;
-
-            updateUnifiedHighlight();
+            m_inputController->handleHoverKey(btn);
         });
 
             m_keyboardGrid->addWidget(btn, row, col++);
@@ -672,23 +647,8 @@ btn->setObjectName("key_" + key);
                     this, &AACKeyboardScreen::handleKeyButtonActivated);
 connect(btn, &AACKeyButton::hovered,
         this, [this, btn]() {
-            if (!m_keyboardGrid)
-                return;
-
-            int index = m_keyboardGrid->indexOf(btn);
-            if (index < 0)
-                return;
-
-            int cols = m_keyboardGrid->columnCount();
-            int gridRow = index / cols;
-            int gridCol = index % cols;
-
-            m_scanRow = gridRow + (m_scanCuratedStrip ? 1 : 0);
-            m_scanCol = gridCol;
-
-            updateUnifiedHighlight();
+            m_inputController->handleHoverKey(btn);
         });
-
             m_keyboardGrid->addWidget(btn, row, col++);
         }
         ++row;
@@ -710,41 +670,14 @@ btn->setObjectName("item_" + item);
     }
         const QString tag = semanticTagForSymbol(item);
 
-        connect(btn, &AACKeyButton::keyActivated, this, [this, item, tag]() {
-m_accessibility->feedback()->playAction();
-
-            if (!tag.isEmpty()) {
-                emit actionTriggered(tag);
-                emit symbolSemantic(tag);
-            } else if (item == tr("Left")) {
-                emit moveCursorLeft();
-            } else if (item == tr("Right")) {
-                emit moveCursorRight();
-            } else if (item == tr("Clear")) {
-                emit clearRequested();
-            } else if (item == tr("Delete word")) {
-                emit deleteWordRequested();
-            }
-        });
-
-connect(btn, &AACKeyButton::hovered,
-        this, [this, btn]() {
-            if (!m_keyboardGrid)
-                return;
-
-            int index = m_keyboardGrid->indexOf(btn);
-            if (index < 0)
-                return;
-
-            int cols = m_keyboardGrid->columnCount();
-            int gridRow = index / cols;
-            int gridCol = index % cols;
-
-            m_scanRow = gridRow + (m_scanCuratedStrip ? 1 : 0);
-            m_scanCol = gridCol;
-
-            updateUnifiedHighlight();
-        });
+connect(btn, &AACKeyButton::keyActivated,
+    this, [this, btn]() {
+        m_inputController->handleActivation(btn);
+    });
+// ⭐ AAC metadata
+AAC::setSemanticTag(btn, tag);
+AAC::setElementHelp(btn, tr("Symbol: %1").arg(item));
+AAC::setRole(btn, "gridSymbol");
 
         m_keyboardGrid->addWidget(btn, row, col);
 
@@ -802,12 +735,6 @@ void AACKeyboardScreen::predictionChosen(const QString& word)
 
 void AACKeyboardScreen::handleKeyButtonActivated(const QString& text)
 {
-    if (m_frozen)
-        return;
-
-// --- AAC multimodal feedback ---
-m_accessibility->feedback()->playClick();
-
     QString out = applyAutoCapitalization(text);
     out = applySmartSpacing(out);
 
@@ -822,11 +749,6 @@ m_accessibility->feedback()->playClick();
 
 void AACKeyboardScreen::handleBackspaceActivated()
 {
-    if (m_frozen)
-        return;
-
-    m_accessibility->feedback()->playBackspace();
-
     // If cursor at start → nothing to delete
     if (m_cursorPosition <= 0)
         return;
@@ -871,20 +793,12 @@ void AACKeyboardScreen::handleBackspaceActivated()
 
 void AACKeyboardScreen::handleEnterActivated()
 {
-    if (m_frozen)
-        return;
-
-m_accessibility->feedback()->playEnter();
-
     emit enterPressed();
     emit characterTyped("\n");
 }
 
 void AACKeyboardScreen::handleSpaceActivated()
 {
-    if (m_frozen)
-        return;
-
     // --- 1. DOUBLE-SPACE → period insertion (word␣␣ → word.␣)
     if (m_cursorPosition > 0 && m_cursorPosition <= m_currentText.size()) {
 
@@ -921,7 +835,6 @@ void AACKeyboardScreen::handleSpaceActivated()
             if (m_cursorPosition < m_currentText.size() &&
                 m_currentText.at(m_cursorPosition) == ' ') {
 
-                m_accessibility->feedback()->playClick();
                 emit spacePressed();
                 return;
             }
@@ -933,7 +846,6 @@ void AACKeyboardScreen::handleSpaceActivated()
     }
 
     // --- 4. FALLBACK: normal space behaviour
-    m_accessibility->feedback()->playClick();
     emit spacePressed();
 }
 // =====================================================
@@ -1187,231 +1099,15 @@ void AACKeyboardScreen::toggleCapsLock()
         m_shiftButtonRight->setHighlighted(m_shift || m_capsLock);
 }
 
-// =====================================================
-//  Freeze / high contrast
-// =====================================================
-
-void AACKeyboardScreen::onFreezeStateChanged(bool frozen)
-{
-    m_frozen = frozen;
-}
-
-void AACKeyboardScreen::onHighContrastChanged(bool enabled)
-{
-    m_highContrast = enabled;
-    applyVisualSettings();
-}
-
-// =====================================================
-//  Scanning + highlight + helpers (non-animated)
-// =====================================================
-
-void AACKeyboardScreen::onDwellTick()
-{
-    const auto modes = m_accessibility->modes();
-
-    // Curated strip dwell support (auto scanning)
-    if (m_scanning && m_curatedStripDwell && m_scanCuratedStrip && m_scanRow == 0) {
-
-        // Adaptive attenuation / fatigue shaping hook
-        if (modes.feedbackEnabled) {
-            m_accessibility->feedbackEngine()->applyFatigueShaping();
-            m_accessibility->feedbackEngine()->applyScanningAttenuation();
-        }
-
-        activateScanTarget();
-        return;
-    }
-}
-
-void AACKeyboardScreen::startRowScan()
-{
-    const auto modes = m_accessibility->modes();
-
-    // External controller is responsible for TalkBack / VoiceOver / Switch Control
-    // suppression; we just honour the scanning flags here.
-    if (!modes.scanning)
-        return;
-
-    m_scanning = true;
-
-    // Core symbols first
-    if (m_coreSymbolsFirst && m_scanCuratedStrip)
-        m_scanRow = 0;
-    else
-        m_scanRow = (m_scanCuratedStrip ? 1 : 0);
-
-    m_scanCol = 0;
-
-    // Row‑level speech + soft haptic
-    if (modes.feedbackEnabled) {
-        m_accessibility->feedbackEngine()->playHapticSoft();
-        m_accessibility->speechEngine()->speakScanningRow(m_scanRow);
-        m_accessibility->feedbackEngine()->applyScanningAttenuation();
-    }
-
-    updateUnifiedHighlight();
-// --- Auto-scan start ---
-if (!modes.stepScanning && m_scanTimer)
-    m_scanTimer->start(modes.scanningSpeedMs);
-
-if (m_accessibility && m_accessibility->predictionEngine())
-    m_accessibility->predictionEngine()->freezePredictions();
-}
-
-void AACKeyboardScreen::startColumnScan()
-{
-    const auto modes = m_accessibility->modes();
-    if (!m_scanning || !modes.scanning)
-        return;
-
-    m_scanCol = 0;
-
-    // Item‑level speech + soft haptic
-    if (modes.feedbackEnabled) {
-        if (auto* btn = highlightedButton()) {
-            m_accessibility->feedbackEngine()->playHapticSoft();
-            m_accessibility->speechEngine()->speakScanningItem(btn->text());
-            m_accessibility->feedbackEngine()->applyScanningAttenuation();
-        }
-    }
-
-if (m_accessibility && m_accessibility->predictionEngine())
-    m_accessibility->predictionEngine()->freezePredictions();
-
-    updateUnifiedHighlight();
-}
-
-void AACKeyboardScreen::handleStepNext()
-{
-    const auto modes = m_accessibility->modes();
-    if (!modes.scanning || !modes.stepScanning)
-        return;
-
-    moveHighlightToNextItem();
-
-    if (modes.feedbackEnabled) {
-        m_accessibility->feedbackEngine()->playStepAdvance();
-        m_accessibility->feedbackEngine()->playHapticSoft();
-
-        if (auto* btn = highlightedButton())
-            m_accessibility->speechEngine()->speakScanningItem(btn->text());
-
-        m_accessibility->feedbackEngine()->applyScanningAttenuation();
-        m_accessibility->feedbackEngine()->applyFatigueShaping();
-    }
-if (m_accessibility && m_accessibility->predictionEngine())
-    m_accessibility->predictionEngine()->freezePredictions();
-}
-
-void AACKeyboardScreen::handleStepPrevious()
-{
-    const auto modes = m_accessibility->modes();
-    if (!modes.scanning || !modes.stepScanning)
-        return;
-
-    moveHighlightToPreviousItem();
-
-    if (modes.feedbackEnabled) {
-        m_accessibility->feedbackEngine()->playStepAdvance();
-        m_accessibility->feedbackEngine()->playHapticSoft();
-
-        if (auto* btn = highlightedButton())
-            m_accessibility->speechEngine()->speakScanningItem(btn->text());
-
-        m_accessibility->feedbackEngine()->applyScanningAttenuation();
-        m_accessibility->feedbackEngine()->applyFatigueShaping();
-    }
-if (m_accessibility && m_accessibility->predictionEngine())
-    m_accessibility->predictionEngine()->freezePredictions();
-}
-
-void AACKeyboardScreen::handleStepSelect()
-{
-    const auto modes = m_accessibility->modes();
-    if (!modes.scanning || !modes.stepScanning)
-        return;
-
-    // Confirm haptic before activation
-    if (modes.feedbackEnabled) {
-        m_accessibility->feedbackEngine()->playHapticConfirm();
-        m_accessibility->feedbackEngine()->applyFatigueShaping();
-    }
-
-    activateScanTarget(); // already plays click/enter/action
-if (m_accessibility && m_accessibility->predictionEngine())
-    m_accessibility->predictionEngine()->unfreezePredictions();
-}
-
-void AACKeyboardScreen::activateScanTarget()
-{
-    const auto modes = m_accessibility->modes();
-    if (!modes.scanning)
-        return;
-
-    if (auto* btn = highlightedButton()) {
-
-        const QString text = btn->text();
-        const QString tag  = semanticTagForSymbol(text);
-
-        // --- AAC multimodal feedback ---
-        if (modes.feedbackEnabled) {
-
-            // Adaptive attenuation / fatigue shaping on activation
-            m_accessibility->feedbackEngine()->applyScanningAttenuation();
-            m_accessibility->feedbackEngine()->applyFatigueShaping();
-
-            if (btn == m_backspaceButton) {
-                m_accessibility->feedback()->playBackspace();
-            }
-            else if (btn == m_enterButton) {
-                m_accessibility->feedback()->playEnter();
-            }
-            else if (btn->isDeepWell() || !tag.isEmpty()) {
-                m_accessibility->feedback()->playAction();
-            }
-            else {
-                m_accessibility->feedback()->playClick();
-            }
-
-            // Confirm haptic on successful activation
-            m_accessibility->feedbackEngine()->playHapticConfirm();
-        }
-
-        // Item speech on activation
-        m_accessibility->speechEngine()->speakScanningItem(text);
-
-        emit btn->keyActivated(text);
-    }
-}
-
-void AACKeyboardScreen::setCoreSymbolsFirst(bool enabled)
-{
-    m_coreSymbolsFirst = enabled;
-}
-
-void AACKeyboardScreen::setCuratedStripDwellEnabled(bool enabled)
-{
-    m_curatedStripDwell = enabled;
-}
-
-void AACKeyboardScreen::setHighContrastEnabled(bool enabled)
-{
-    m_highContrast = enabled;
-    applyVisualSettings();
-}
-
-void AACKeyboardScreen::setFreezeEnabled(bool enabled)
-{
-    m_frozen = enabled;
-}
-
 AACKeyButton* AACKeyboardScreen::highlightedButton() const
 {
+    auto [row, col] = m_inputController->scanPosition();
+    bool curated = m_inputController->scanCuratedStripEnabled();
+
     // --- 1. Curated strip row (row 0) ---
-    if (m_scanCuratedStrip && m_scanRow == 0 && m_curatedStripLayout) {
-        if (m_scanCol >= 0 && m_scanCol < m_curatedStripLayout->count()) {
-            if (auto* item = m_curatedStripLayout->itemAt(m_scanCol))
+    if (curated && row == 0 && m_curatedStripLayout) {
+        if (col >= 0 && col < m_curatedStripLayout->count()) {
+            if (auto* item = m_curatedStripLayout->itemAt(col))
                 return qobject_cast<AACKeyButton*>(item->widget());
         }
         return nullptr;
@@ -1421,12 +1117,11 @@ AACKeyButton* AACKeyboardScreen::highlightedButton() const
     if (!m_keyboardGrid)
         return nullptr;
 
-    // If curated strip is enabled, keyboard rows start at row 1
-    int gridRow = m_scanRow - (m_scanCuratedStrip ? 1 : 0);
+    int gridRow = curated ? row - 1 : row;
     if (gridRow < 0)
         return nullptr;
 
-    if (auto* item = m_keyboardGrid->itemAtPosition(gridRow, m_scanCol))
+    if (auto* item = m_keyboardGrid->itemAtPosition(gridRow, col))
         return qobject_cast<AACKeyButton*>(item->widget());
 
     return nullptr;
@@ -1434,30 +1129,41 @@ AACKeyButton* AACKeyboardScreen::highlightedButton() const
 
 void AACKeyboardScreen::updateUnifiedHighlight()
 {
-    // Clear previous scanning highlight
-    if (m_currentHighlightedButton) {
-        m_currentHighlightedButton->setHighlighted(false);
-        m_currentHighlightedButton.clear();
-    }
-
-    // Apply scanning highlight
     if (auto* btn = highlightedButton()) {
         btn->setHighlighted(true);
         btn->setFocus();
-        m_currentHighlightedButton = btn;
+m_inputController->setPreviousHighlightedButton(btn);
     }
-
-    // Semantic highlight is already applied by setSemanticHighlight()
-    // and intentionally NOT cleared here.
 }
 void AACKeyboardScreen::keyPressEvent(QKeyEvent* e)
 {
+    if (!m_inputController) {
+        QWidget::keyPressEvent(e);
+        return;
+    }
+
     switch (e->key()) {
 
-    case Qt::Key_Left:  moveHighlightLeft();  return;
-    case Qt::Key_Right: moveHighlightRight(); return;
-    case Qt::Key_Up:    moveHighlightUp();    return;
-    case Qt::Key_Down:  moveHighlightDown();  return;
+    case Qt::Key_Left:
+        m_inputController->moveLeft();
+        return;
+
+    case Qt::Key_Right:
+        m_inputController->moveRight();
+        return;
+
+    case Qt::Key_Up:
+        m_inputController->moveUp();
+        return;
+
+    case Qt::Key_Down:
+        m_inputController->moveDown();
+        return;
+
+    case Qt::Key_Return:
+    case Qt::Key_Enter:
+        m_inputController->activateCurrent();
+        return;
 
     default:
         QWidget::keyPressEvent(e);
@@ -1465,174 +1171,3 @@ void AACKeyboardScreen::keyPressEvent(QKeyEvent* e)
     }
 }
 
-void AACKeyboardScreen::moveHighlightLeft()
-{
-    const auto modes = m_accessibility->modes();
-    m_scanCol = qMax(0, m_scanCol - 1);
-
-    if (modes.feedbackEnabled) {
-        m_accessibility->feedbackEngine()->playHapticSoft();
-        if (auto* btn = highlightedButton())
-            m_accessibility->speechEngine()->speakScanningItem(btn->text());
-        m_accessibility->feedbackEngine()->applyScanningAttenuation();
-    }
-
-    updateUnifiedHighlight();
-}
-
-void AACKeyboardScreen::moveHighlightRight()
-{
-    const auto modes = m_accessibility->modes();
-    m_scanCol = qMin(maxCol(), m_scanCol + 1);
-
-    if (modes.feedbackEnabled) {
-        m_accessibility->feedbackEngine()->playHapticSoft();
-        if (auto* btn = highlightedButton())
-            m_accessibility->speechEngine()->speakScanningItem(btn->text());
-        m_accessibility->feedbackEngine()->applyScanningAttenuation();
-    }
-
-    updateUnifiedHighlight();
-}
-
-void AACKeyboardScreen::moveHighlightUp()
-{
-    const auto modes = m_accessibility->modes();
-    m_scanRow = qMax(0, m_scanRow - 1);
-    m_scanCol = qMin(m_scanCol, maxCol());
-
-    if (modes.feedbackEnabled) {
-        m_accessibility->feedbackEngine()->playHapticSoft();
-        m_accessibility->speechEngine()->speakScanningRow(m_scanRow);
-        m_accessibility->feedbackEngine()->applyScanningAttenuation();
-    }
-
-    updateUnifiedHighlight();
-}
-
-void AACKeyboardScreen::moveHighlightDown()
-{
-    const auto modes = m_accessibility->modes();
-    m_scanRow = qMin(maxRow(), m_scanRow + 1);
-    m_scanCol = qMin(m_scanCol, maxCol());
-
-    if (modes.feedbackEnabled) {
-        m_accessibility->feedbackEngine()->playHapticSoft();
-        m_accessibility->speechEngine()->speakScanningRow(m_scanRow);
-        m_accessibility->feedbackEngine()->applyScanningAttenuation();
-    }
-
-    updateUnifiedHighlight();
-}
-
-int AACKeyboardScreen::maxRow() const
-{
-    int rows = 0;
-
-    // Curated strip row (row 0)
-    if (m_scanCuratedStrip && m_curatedStripLayout)
-        rows += 1;
-
-    // Keyboard grid rows (row 1+)
-    if (m_keyboardGrid)
-        rows += m_keyboardGrid->rowCount();
-
-    return rows > 0 ? rows - 1 : 0;
-}
-
-int AACKeyboardScreen::maxCol() const
-{
-    return m_keyboardGrid ? m_keyboardGrid->columnCount() - 1 : 0;
-}
-
-void AACKeyboardScreen::moveHighlightToNextItem()
-{
-    const auto modes = m_accessibility->modes();
-    if (modes.stepScanning)
-        return;   // STOP auto movement when step scanning is active
-
-    int totalCols = m_keyboardGrid->columnCount();
-    int totalRows = m_keyboardGrid->rowCount() + 1; // + curated strip row
-
-    int index = m_scanRow * totalCols + m_scanCol;
-    index++;
-
-    if (index >= totalRows * totalCols)
-        index = 0;
-
-    m_scanRow = index / totalCols;
-    m_scanCol = index % totalCols;
-
-    if (modes.feedbackEnabled) {
-        m_accessibility->feedbackEngine()->playHapticSoft();
-        if (auto* btn = highlightedButton())
-            m_accessibility->speechEngine()->speakScanningItem(btn->text());
-        m_accessibility->feedbackEngine()->applyScanningAttenuation();
-    }
-
-    updateUnifiedHighlight();
-}
-
-void AACKeyboardScreen::moveHighlightToPreviousItem()
-{
-    const auto modes = m_accessibility->modes();
-    if (modes.stepScanning)
-        return;   // STOP auto movement when step scanning is active
-
-    int totalCols = m_keyboardGrid->columnCount();
-    int totalRows = m_keyboardGrid->rowCount() + 1; // + curated strip row
-
-    int index = m_scanRow * totalCols + m_scanCol;
-    index--;
-
-    if (index < 0)
-        index = totalRows * totalCols - 1;
-
-    m_scanRow = index / totalCols;
-    m_scanCol = index % totalCols;
-
-    if (modes.feedbackEnabled) {
-        m_accessibility->feedbackEngine()->playHapticSoft();
-        if (auto* btn = highlightedButton())
-            m_accessibility->speechEngine()->speakScanningItem(btn->text());
-        m_accessibility->feedbackEngine()->applyScanningAttenuation();
-    }
-
-    updateUnifiedHighlight();
-}
-void AACKeyboardScreen::stopScan()
-{
-    m_scanning = false;
-    if (m_scanTimer)
-        m_scanTimer->stop();
-
-if (m_accessibility && m_accessibility->predictionEngine())
-    m_accessibility->predictionEngine()->unfreezePredictions();
-
-    updateUnifiedHighlight();
-}
-void AACKeyboardScreen::setSemanticHighlight(const QString& tag)
-{
-    // Curated strip
-    for (int i = 0; i < m_curatedStripLayout->count(); ++i) {
-        QWidget* w = m_curatedStripLayout->itemAt(i)->widget();
-        if (auto* btn = qobject_cast<AACKeyButton*>(w)) {
-            QString symTag = semanticTagForSymbol(btn->text());
-            btn->setSemanticHighlighted(symTag == tag);
-        }
-    }
-
-    // Grid symbols (GridMode only)
-    if (m_mode == GridMode && m_keyboardGrid) {
-        for (int i = 0; i < m_keyboardGrid->count(); ++i) {
-            QWidget* w = m_keyboardGrid->itemAt(i)->widget();
-            if (auto* btn = qobject_cast<AACKeyButton*>(w)) {
-                QString symTag = semanticTagForSymbol(btn->text());
-                btn->setSemanticHighlighted(symTag == tag);
-            }
-        }
-    }
-
-    // Ensure scanning highlight stays dominant
-    updateUnifiedHighlight();
-}

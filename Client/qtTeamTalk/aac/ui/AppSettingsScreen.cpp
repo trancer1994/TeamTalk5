@@ -7,8 +7,7 @@
 #include <QSpinBox>
 #include <QComboBox>
 
-#include "AACButton.h"
-#include "AACToggle.h"
+#include "AACKeyButton.h"
 
 AppSettingsScreen::AppSettingsScreen(AACAccessibilityManager* aac, QWidget* parent)
     : AACScreenBase(aac, parent)

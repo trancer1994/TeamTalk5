@@ -140,6 +140,7 @@ void PredictiveStrip::updateButtons(const std::vector<std::string>& suggestions)
             oldMap.remove(word);
         } else {
             btn = new AACKeyButton(m_mgr, this);
+    btn->setObjectName("prediction_" + word);
 btn->setText(word);
 QString elided = btn->fontMetrics().elidedText(word, Qt::ElideRight, 120);
 btn->setText(elided);
@@ -226,6 +227,9 @@ btn->setMaximumWidth(btnWidth);
                         }
                     });
         }
+
+AAC::setElementHelp(btn, tr("Prediction: %1").arg(word));
+AAC::setRole(btn, "prediction");
 
         m_layout->addWidget(btn);
         newButtons.append(btn);

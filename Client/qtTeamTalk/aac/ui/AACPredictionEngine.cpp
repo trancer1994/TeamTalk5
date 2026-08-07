@@ -161,6 +161,21 @@ std::vector<std::string> AACPredictionEngine::tokenize(const QString& text) cons
         out.push_back(p.toLower().toStdString());
 
     return out;
+
+// Push semantic tag into AAC metadata for UI
+if (m_mgr && !tag.isEmpty()) {
+    QString sym = symbolForSemanticTag(tag);
+    if (!sym.isEmpty()) {
+        // Find curated strip buttons and tag them
+        QList<AACKeyButton*> keys = m_mgr->layoutEngine()
+            ->currentScreen()->findChildren<AACKeyButton*>();
+
+        for (AACKeyButton* k : keys) {
+            if (k->text() == sym)
+                AAC::setSemanticTag(k, tag);
+        }
+    }
+}
 }
 
 // -------------------------

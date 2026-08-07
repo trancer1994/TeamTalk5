@@ -10,24 +10,40 @@ AACMainScreen::AACMainScreen(AACAccessibilityManager* aac,
     : AACScreenBase(aac, parent)
     , m_aac(aac)
 {
-    setScreenTitle(tr("AAC"));
+setScreenTitle(tr("AAC Main Screen"));
 
-    m_rootLayout = new QVBoxLayout(this);
-    m_rootLayout->setContentsMargins(8, 8, 8, 8);
-    m_rootLayout->setSpacing(8);
+// --- Create tab widget ---
+m_tabs = new QTabWidget(this);
+m_tabs->setTabPosition(QTabWidget::North);
+
+// --- Compose tab container ---
+QWidget* composeTab = new QWidget(this);
+m_rootLayout = new QVBoxLayout(composeTab);   // ← IMPORTANT: rootLayout now belongs to composeTab
+m_rootLayout->setContentsMargins(8, 8, 8, 8);
+m_rootLayout->setSpacing(8);
 
 // Text bar
 m_textBar = new AACTextBar(m_aac, this);
 m_rootLayout->addWidget(m_textBar);
+m_textBar->setAccessibleName("Message composer");
+m_textBar->setAccessibleDescription("Type or edit your AAC message here.");
 
 m_messageBar = new AACMessageBar(...)(m_aac, this);
 m_rootLayout->addWidget(m_messageBar);
+m_messageBar->setAccessibleName("Symbol message bar");
+m_messageBar->setAccessibleDescription("Insert symbols or pictographic AAC items into your message.");
 
 // Predictive strip directly under text bar
 m_predictiveStrip = new PredictiveStrip(this);
 m_predictiveStrip->setManager(m_aac);
 m_predictiveStrip->setTextBar(m_textBar);
 m_rootLayout->addWidget(m_predictiveStrip);
+auto* predContainer = new QWidget(this);
+predContainer->setAccessibleName("Prediction suggestions");
+predContainer->setAccessibleDescription("Word and phrase suggestions based on what you are typing.");
+auto* predLayout = new QVBoxLayout(predContainer);
+predLayout->addWidget(m_predictiveStrip);
+m_rootLayout->addWidget(predContainer);
 
 // --- Semantic context label (static, AAC‑safe) ---
 m_semanticLabel = new QLabel(this);
@@ -36,6 +52,8 @@ m_semanticLabel->setStyleSheet(
     "font-size: 16px; color: #555; padding-left: 4px;"
 );
 m_rootLayout->addWidget(m_semanticLabel);
+m_semanticLabel->setAccessibleName("Semantic context");
+m_semanticLabel->setAccessibleDescription("Shows the meaning category of the word under the cursor.");
 
 // --- Cursor-aware semantic breadcrumb ---
 m_cursorSemanticLabel = new QLabel(this);
@@ -44,46 +62,73 @@ m_cursorSemanticLabel->setStyleSheet(
     "font-size: 14px; color: #666; padding-left: 4px;"
 );
 m_rootLayout->addWidget(m_cursorSemanticLabel);
+m_cursorSemanticLabel->setAccessibleName("Editing indicator");
+m_cursorSemanticLabel->setAccessibleDescription("Shows which word you are currently editing.");
 
 auto* buttonRow = new QHBoxLayout();
 buttonRow->setContentsMargins(0, 0, 0, 0);
 buttonRow->setSpacing(8);
 
-auto* keyboardButton = new AACKeyButton(tr("Keyboard"), m_aac, this);
-buttonRow->addWidget(keyboardButton);
+auto* actionContainer = new QWidget(this);
+actionContainer->setAccessibleName("Action buttons");
+actionContainer->setAccessibleDescription("Keyboard, symbols, send, speak, and history controls.");
+auto* actionLayout = new QHBoxLayout(actionContainer);
+actionLayout->addLayout(buttonRow);
+m_rootLayout->addWidget(actionContainer);
+
+m_keyboardButton = new AACKeyButton(tr("Keyboard"), m_aac, this);
+buttonRow->addWidget(m_keyboardButton);
 buttonRow->addStretch(1);
+m_keyboardButton->setAccessibleDescription("Open the AAC keyboard.");
 
-auto* symbolsButton  = new AACKeyButton(tr("Symbols"), m_aac, this);
-buttonRow->addWidget(symbolsButton);
+m_symbolsButton = new AACKeyButton(tr("Symbols"), m_aac, this);
+buttonRow->addWidget(m_symbolsButton);
 buttonRow->addStretch(1);
+m_symbolsButton->setAccessibleDescription("Open the AAC symbol grid.");
 
-auto* sendChannelBtn = new AACKeyButton(tr("Send to Channel"), m_aac, this);
-auto* sendPrivateBtn = new AACKeyButton(tr("Send Privately"), m_aac, this);
-auto* speakBtn       = new AACKeyButton(tr("Speak"), m_aac, this);
+m_sendChannelBtn = new AACKeyButton(tr("Send to Channel"), m_aac, this);
+buttonRow->addWidget(m_sendChannelBtn);
+m_sendChannelBtn->setAccessibleDescription("Send your AAC message to the current channel.");
 
-buttonRow->addWidget(sendChannelBtn);
-buttonRow->addWidget(sendPrivateBtn);
-buttonRow->addWidget(speakBtn);
+m_sendPrivateBtn = new AACKeyButton(tr("Send Privately"), m_aac, this);
+buttonRow->addWidget(m_sendPrivateBtn);
+m_sendPrivateBtn->setAccessibleDescription("Send your AAC message privately to a selected user.");
 
-m_rootLayout->addLayout(buttonRow);
+m_speakBtn = new AACKeyButton(tr("Speak"), m_aac, this);
+buttonRow->addWidget(m_speakBtn);
+m_speakBtn->setAccessibleDescription("Speak your AAC message aloud.");
 
-connect(keyboardButton, &AACKeyButton::keyActivated,
+m_historyButton = new AACKeyButton(tr("History"), m_aac, this);
+buttonRow->addWidget(m_historyButton);
+m_historyButton->setAccessibleDescription("Switch to the AAC message history tab.");
+
+m_recorderButton = new AACKeyButton(tr("Recorder"), m_aac, this);
+buttonRow->addWidget(m_recorderButton);
+m_recorderButton->setAccessibleDescription("Open the AAC converwsation recorder.");
+
+connect(m_keyboardButton, &AACKeyButton::keyActivated,
         this, [this]() { emit keyboardRequested(); });
 
-connect(symbolsButton, &AACKeyButton::keyActivated,
+connect(m_symbolsButton, &AACKeyButton::keyActivated,
         this, [this]() { emit symbolGridRequested(); });
 
-connect(sendChannelBtn, &AACKeyButton::keyActivated, this, [this]() {
+connect(m_sendChannelBtn, &AACKeyButton::keyActivated, this, [this]() {
     m_sendMode = SendMode::Channel;
 });
 
-connect(sendPrivateBtn, &AACKeyButton::keyActivated, this, [this]() {
+connect(m_sendPrivateBtn, &AACKeyButton::keyActivated, this, [this]() {
     m_sendMode = SendMode::Private;
 });
 
-connect(speakBtn, &AACKeyButton::keyActivated, this, [this]() {
+connect(m_speakBtn, &AACKeyButton::keyActivated, this, [this]() {
     m_sendMode = SendMode::Speak;
 });
+connect(m_historyButton, &AACKeyButton::keyActivated, this, [this]() {
+    m_tabs->setCurrentIndex(1);   // Switch to History tab
+});
+connect(m_recorderButton, &AACKeyButton::keyActivated,
+        this, [this]() { emit recorderRequested(); });
+
 // Prediction freeze/unfreeze wiring
 {
     connect(this, &AACMainScreen::keyboardRequested, this, [this]() {
@@ -125,6 +170,48 @@ connect(m_messageBar, &AACMessageBar::symbolMessageReady,
     m_textBar->setText(current);
     m_textBar->setCursorPosition(current.size());
 });
+// --- Add Compose tab ---
+m_tabs->addTab(composeTab, tr("Compose"));
+
+// --- History tab ---
+m_historyViewer = new AACMessageHistoryViewer(m_aac->history(), this);
+m_tabs->addTab(m_historyViewer, tr("History"));
+
+// --- History item actions ---
+connect(m_historyViewer, &AACMessageHistoryViewer::requestReplay,
+        this, [this](const AACMessageHistoryEvent& ev) {
+            m_aac->history()->replayEvent(ev);
+        });
+
+connect(m_historyViewer, &AACMessageHistoryViewer::requestSpeak,
+        this, [this](const AACMessageHistoryEvent& ev) {
+            if (auto* s = m_aac->accessibility()->speechEngine())
+                s->speak(ev.text);
+        });
+
+connect(m_historyViewer, &AACMessageHistoryViewer::requestCopy,
+        this, [](const AACMessageHistoryEvent& ev) {
+            QApplication::clipboard()->setText(ev.text);
+        });
+
+connect(m_historyViewer, &AACMessageHistoryViewer::requestDelete,
+        this, [this](const AACMessageHistoryEvent& ev) {
+            m_aac->history()->deleteEvent(ev);
+        });
+connect(m_historyViewer, &AACScreenBase::escapePressed,
+        this, [this]() {
+            m_tabs->setCurrentIndex(0);   // Back to Compose tab
+        });
+connect(m_tabs, &QTabWidget::currentChanged,
+        this, [this](int idx) {
+            if (idx == 1)
+                m_historyViewer->refreshScanning();
+            else
+                refreshScanning();
+        });
+// --- Replace screen layout with tab widget ---
+m_outerLayout = new QVBoxLayout(this);
+m_outerLayout->addWidget(m_tabs);
 }
 QString AACMainScreen::contextualHelp() const {
     return tr(
@@ -142,17 +229,33 @@ QString AACMainScreen::contextualHelp() const {
 
 QList<QWidget*> AACMainScreen::interactiveWidgets() const
 {
-    return { m_textBar };
+    return {
+        m_textBar,
+        m_messageBar,
+        m_predictiveStrip,
+        m_keyboardButton,
+        m_symbolsButton,
+        m_sendChannelBtn,
+        m_sendPrivateBtn,
+        m_speakBtn,
+        m_historyButton
+    };
 }
 
 QList<QWidget*> AACMainScreen::primaryWidgets() const
 {
-    return { m_textBar, };
+    return {
+        m_textBar,
+        m_predictiveStrip,
+        m_keyboardButton,
+        m_symbolsButton,
+        m_speakBtn
+    };
 }
 
 QLayout* AACMainScreen::rootLayout() const
 {
-    return m_rootLayout;
+    return m_outerLayout;
 }
 
 // ------------------------------------------------------------

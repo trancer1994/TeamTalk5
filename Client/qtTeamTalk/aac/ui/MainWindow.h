@@ -56,7 +56,8 @@ Screen_AACServerDiscovery,
         Screen_AACSymbolGrid,
         Screen_Settings,
         Screen_SpeechSettings,
-        Screen_AppSettings
+        Screen_AppSettings,
+    Screen_AACConversationRecorder
     };
 
     void showScreen(ScreenId id);
@@ -100,6 +101,7 @@ ChannelPasswordScreen* m_channelPasswordScreen = nullptr;
     AACSettingsScreen*       m_settingsScreen = nullptr;
     AACSpeechSettingsScreen* m_speechSettingsScreen = nullptr;
     AppSettingsScreen*       m_appSettingsScreen = nullptr;
+AACConversationRecorderViewer* m_recorderScreen = nullptr;
 
     // Internal helpers
     void createScreens();

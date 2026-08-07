@@ -1,5 +1,5 @@
 #include "AACTypingMethodScreen.h"
-#include "AACButton.h"
+#include "AACKeyButton.h"
 #include <QVBoxLayout>
 #include <QLabel>
 

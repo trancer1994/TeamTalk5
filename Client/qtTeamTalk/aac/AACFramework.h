@@ -52,6 +52,7 @@ class AACMessageHistory;
 class AACVocabularyManager;
 class AACPredictionEngine;
 class AACScreenAdapter;
+class AACConversationRecorderQtAdapter;
 
 class AACScreenAdapter {
 public:
@@ -157,9 +158,12 @@ bool switchControlDetected() const      { return m_switchControlDetected; }
     AACMessageHistory* history() const;
     AACPredictionEngine* predictionEngine() const;
     AACVocabularyManager* vocabularyManager() const;
+AACAudioEngine* audioEngine() const { return m_audioEngine; }
 
     // Live TalkBack update from Android (Java → C++)
     void updateTalkBackFromPlatform(bool on);
+
+    AACElementRegistry* registry() const { return m_registry; }
 
 public slots:
     void setActiveCategory(const QString& category);
@@ -210,6 +214,7 @@ UserProfile m_userProfile;
 
     AACPredictionEngine* m_predictionEngine = nullptr;
     bool m_predictionEnabled = true;
+AACAudioEngine* m_audioEngine = nullptr;
 
     AACSpeechConfig m_speechConfig;
 
@@ -224,6 +229,7 @@ bool m_switchControlDetected = false;
 
     // Singleton pointer for JNI access
     static AACAccessibilityManager* s_instance;
+    AACElementRegistry* m_registry = nullptr;
 };
 
 
@@ -361,28 +367,37 @@ private:
 QQueue<SpeechItem> m_queue;
 bool m_speaking = false;
 SpeechPriority m_currentPriority = SpeechPriority::Ambient;
+QByteArray synthesizeToPcm(const QString& text, int& sampleRate, int& channels);
 };
 
+struct AACMessageEvent {
+    QString text;            // AAC message text
+    QString fromUser;        // sender username (local or remote)
+    QDateTime timestamp;     // when the AAC message occurred
+    bool spoken = false;     // true if spoken locally
+    QString semanticGroup;   // prediction semantic context
+    QString inputModality;   // keyboard, symbol, prediction, dwell, remote
+    bool emergency = false;  // optional emergency flag
+};
 class AACMessageHistory : public QObject
 {
     Q_OBJECT
-
 public:
-    AACMessageHistory(AACAccessibilityManager* mgr, QObject* parent = nullptr);
+    explicit AACMessageHistory(AACAccessibilityManager* mgr,
+                               QObject* parent = nullptr);
 
-    void addMessage(const QString& msg);
-    QStringList history() const;
+    void addMessage(const AACMessageEvent& ev);
+    QList<AACMessageEvent> history() const;
 
-public slots:
     void replayMessage(int index);
     void replayLast();
 
 signals:
-    void historyChanged(const QStringList& history);
+    void historyChanged(const QList<AACMessageEvent>& history);
 
 private:
-    AACAccessibilityManager* m_mgr = nullptr;
-    QStringList m_history;
+    AACAccessibilityManager* m_mgr;
+    QList<AACMessageEvent> m_history;
 };
 class AACFramework : public QObject
 {
@@ -444,4 +459,5 @@ public:
 private:
     AACAccessibilityManager* m_accessibility = nullptr;
     AACKeyboardScreen*       m_keyboardScreen = nullptr;
+    AACConversationRecorderQtAdapter* m_recorder = nullptr;
 };

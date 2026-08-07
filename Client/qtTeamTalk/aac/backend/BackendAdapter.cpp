@@ -1,9 +1,8 @@
 #include "BackendAdapter.h"
 #include "aac/core/AACMessageCodec.h"
-#include "aac/core/AACFramework.h"
+#include "AACFramework.h"
 #include <QTextStream>
 #include <cstring>
-#include "TeamTalk.h"
 
 BackendAdapter::BackendAdapter(QObject* parent)
     : QObject(parent)
@@ -507,6 +506,28 @@ void BackendAdapter::processEvents()
             break;
         }
     }
+// --------------------------------------------------------
+// PCM audio polling (TeamTalk voice packets)
+// --------------------------------------------------------
+int userCount = TT_GetUserCount(m_tt);
+for (int i = 0; i < userCount; ++i) {
+    int userId = TT_GetUserID(m_tt, i);
+
+    TTUserAudioPacket* pkt = nullptr;
+    while (TT_GetUserAudioPacket(m_tt, userId, STREAMTYPE_VOICE, &pkt)) {
+
+        // PCM is 16-bit signed
+        int bytes = pkt->nSamples * pkt->nChannels * sizeof(short);
+
+        QByteArray pcm(reinterpret_cast<const char*>(pkt->lpRawAudio),
+                       bytes);
+
+        emit userAudioFrame(userId,
+                            pcm,
+                            pkt->nSampleRate,
+                            pkt->nChannels);
+    }
+}
 }
 
 //

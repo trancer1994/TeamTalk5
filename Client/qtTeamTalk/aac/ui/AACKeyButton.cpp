@@ -53,13 +53,46 @@ void AACKeyButton::setDwellProgress(float p)
     update();
 }
 
+void AACKeyButton::focusInEvent(QFocusEvent* e)
+{
+    QPushButton::focusInEvent(e);
+
+    if (!m_aac)
+        return;
+
+    const AACModeFlags modes = m_aac->modes();
+
+    // Do not speak during scanning or dwell
+    if (modes.scanning || modes.dwell)
+        return;
+
+    // Metadata help
+    if (modes.helpMode && m_aac->registry()) {
+        AACElementMetadata md = m_aac->registry()->metadata(this);
+        if (!md.helpText.isEmpty() && m_aac->speechEngine()) {
+            m_aac->speechEngine()->speakNotification(md.helpText);
+        }
+    }
+}
 void AACKeyButton::enterEvent(QEnterEvent* event)
 {
     QPushButton::enterEvent(event);
 
     emit hovered(this);
 
-    // --- Dwell activation (curated strip or any AACKeyButton) ---
+    // --- AAC metadata speech (new) ---
+    if (m_aac && m_aac->registry()) {
+        auto md = m_aac->registry()->metadata(this);
+
+        if (!md.helpText.isEmpty() &&
+            m_aac->speechEngine() &&
+            !m_aac->modes().fatigueMode)
+        {
+            m_aac->speechEngine()->speakNotification(md.helpText);
+        }
+    }
+
+    // --- Dwell activation (existing) ---
     if (m_aac &&
         m_aac->modes().dwell &&
         m_aac->modes().curatedStripDwell)
@@ -67,7 +100,6 @@ void AACKeyButton::enterEvent(QEnterEvent* event)
         m_aac->inputController()->startDwellOn(this);
     }
 }
-
 void AACKeyButton::mousePressEvent(QMouseEvent* e)
 {
     const bool fatigue = m_aac && m_aac->modes().fatigueMode;
@@ -162,17 +194,35 @@ void AACKeyButton::paintEvent(QPaintEvent* event)
         p.restore();
     }
 
-    // --- 2. Semantic highlight (blue) ---
-    if (m_semanticHighlighted) {
-        p.save();
-        QPen pen(QColor(0, 120, 215)); // Windows blue
-        pen.setWidth(3);
-        p.setPen(pen);
-        p.setBrush(Qt::NoBrush);
-        p.drawRoundedRect(r.adjusted(3, 3, -3, -3), 6, 6);
-        p.restore();
-    }
+// --- 2. Semantic highlight (role‑based) ---
+if (m_semanticHighlighted) {
+    p.save();
 
+    int inset = m_highlighted ? 6 : 3;
+
+    QPen pen(m_semanticColor);   // ⭐ use stored colour
+    pen.setWidth(3);
+    p.setPen(pen);
+    p.setBrush(Qt::NoBrush);
+
+    p.drawRoundedRect(r.adjusted(inset, inset, -inset, -inset), 6, 6);
+    p.restore();
+}
+// --- Semantic pulse (urgent items) ---
+if (m_semanticPulse) {
+    p.save();
+
+    // Pulse is a thick inner ring
+    int inset = m_highlighted ? 9 : 6;
+
+    QPen pen(QColor(255, 0, 0)); // red pulse
+    pen.setWidth(4);
+    p.setPen(pen);
+    p.setBrush(Qt::NoBrush);
+
+    p.drawRoundedRect(r.adjusted(inset, inset, -inset, -inset), 6, 6);
+    p.restore();
+}
     // --- 3. Dwell progress arc ---
     if (m_dwellProgress > 0.0f &&
         m_aac &&

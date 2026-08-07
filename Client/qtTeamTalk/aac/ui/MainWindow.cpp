@@ -2,19 +2,19 @@
 #include "AACTitleBar.h"
 #include "AACScreenBase.h"
 
-#include "ui/ConnectScreen.h"
-#include "ui/InChannelScreen.h"
+#include "ConnectScreen.h"
+#include "InChannelScreen.h"
 
-#include "aac/ui/AACMainScreen.h"
-#include "aac/ui/AACKeyboardScreen.h"
-#include "aac/ui/AACSymbolGridScreen.h"
-#include "aac/ui/AACSettingsScreen.h"
-#include "aac/ui/AACSpeechSettingsScreen.h"
-#include "aac/ui/AACEarconRouter.h"
+#include "AACMainScreen.h"
+#include "AACKeyboardScreen.h"
+#include "AACSymbolGridScreen.h"
+#include "AACSettingsScreen.h"
+#include "AACSpeechSettingsScreen.h"
+#include "AACEarconRouter.h"
 
-#include "ui/AppSettingsScreen.h"
+#include "AppSettingsScreen.h"
 
-#include "aac/AACFramework.h"
+#include "AACFramework.h"
 #include "backend/BackendAdapter.h"
 
 #include "aac_server_discovery.h"
@@ -65,6 +65,8 @@ MainWindow::~MainWindow() = default;
 
 void MainWindow::createScreens()
 {
+m_recorder = new AACConversationRecorder(m_aac, this);
+
 m_aacCommMethodScreen = new AACCommunicationMethodScreen(m_aac, this);
 m_stack->addWidget(m_aacCommMethodScreen);
 
@@ -114,6 +116,50 @@ connect(m_aacMainScreen, &AACMainScreen::sendToUserMessage,
 connect(m_aacMainScreen, &AACMainScreen::speakAACMessage,
         this, &MainWindow::onSpeakMessage);
 
+// ⭐ Recorder wiring (BackendAdapter → MainWindow → AACFramework::recorder)
+connect(m_backend, &BackendAdapter::selfVoiceEvent,
+        this, &MainWindow::onSelfVoiceEvent);
+
+connect(m_backend, &BackendAdapter::otherUserVoiceEvent,
+        this, &MainWindow::onOtherVoiceEvent);
+
+connect(m_backend, &BackendAdapter::transmitStateChanged,
+        this, &MainWindow::onTransmitStateChanged);
+
+connect(m_backend, &BackendAdapter::channelEvent,
+        this, &MainWindow::onChannelEvent);
+
+connect(m_backend, &BackendAdapter::channelForcedLeave,
+        this, &MainWindow::onChannelForcedLeave);
+
+connect(m_backend, &BackendAdapter::aacMessageReceived,
+        this, &MainWindow::onAACMessageReceived);
+
+// --- PCM audio → conversation recorder ---
+connect(m_backend, &BackendAdapter::userAudioFrame,
+        this, [this](int userId,
+                     const QByteArray& pcm,
+                     int sampleRate,
+                     int channels)
+{
+    if (!m_recorder)
+        return;
+
+    // Resolve username for event markers
+    QString username = m_backend->usernameForId(userId);
+
+    // Resolve channel ID (TeamTalk API)
+    int chId = TT_GetMyChannelID(m_backend->ttInstance());
+    QString channelId = QString::number(chId);
+
+    // Append PCM to continuous stream + add event marker
+    m_recorder->recordAudioFrame(username,
+                                 channelId,
+                                 pcm,
+                                 sampleRate,
+                                 channels);
+});
+
     m_aacKeyboardScreen = new AACKeyboardScreen(m_aac, this);
     m_stack->addWidget(m_aacKeyboardScreen);
 
@@ -146,6 +192,54 @@ connect(m_aac->predictionEngine(),
     m_stack->addWidget(m_appSettingsScreen);
 }
 
+void MainWindow::showConversationRecorder()
+{
+    auto* viewer = new AACConversationRecorderViewer(m_recorder, m_aac, this);
+
+    // Play entire conversation
+    connect(viewer, &AACConversationRecorderViewer::requestPlayConversation,
+            this, [this]() {
+                m_recorder->playConversationAudio();
+            });
+
+    // Export entire conversation
+    connect(viewer, &AACConversationRecorderViewer::requestExportConversation,
+            this, [this]() {
+                QByteArray wav = m_recorder->exportConversationAudioWav();
+                if (wav.isEmpty())
+                    return;
+
+                QString path = QFileDialog::getSaveFileName(
+                    this,
+                    tr("Export Conversation Audio"),
+                    "conversation.wav",
+                    tr("WAV files (*.wav)")
+                );
+
+                if (!path.isEmpty()) {
+                    QFile f(path);
+                    if (f.open(QIODevice::WriteOnly))
+                        f.write(wav);
+                }
+            });
+
+    // Show event metadata
+    connect(viewer, &AACConversationRecorderViewer::requestShowDetails,
+            this, &MainWindow::showRecorderEventDetails);
+
+    m_stack->addWidget(viewer);
+    m_stack->setCurrentWidget(viewer);
+}
+void MainWindow::showRecorderEventDetails(const AACConversationRecorder::Event& ev)
+{
+    // You can show this inline in a side panel, or in your AACScreenBase footer.
+    // Example:
+    m_statusBar->showMessage(
+        tr("Event at %1 — %2")
+        .arg(ev.timestamp.toString("yyyy-MM-dd hh:mm:ss"))
+        .arg(ev.text)
+    );
+}
 void MainWindow::initHelpRegistry()
 {
     // AAC Communication Method
@@ -187,6 +281,27 @@ void MainWindow::initHelpRegistry()
     // In Channel
     m_helpRegistry[Screen_InChannel].screenHelp =
         tr("You are in a channel. Press F8 to talk, or use AAC to communicate.");
+
+m_helpRegistry[Screen_InChannel].elementHelp["messageLog"] =
+    tr("Shows recent messages. Press F6 to focus the log.");
+
+m_helpRegistry[Screen_InChannel].elementHelp["historyButton"] =
+    tr("Open the conversation history screen.");
+
+m_helpRegistry[Screen_InChannel].elementHelp["sendToButton"] =
+    tr("Choose whether to send your message to the channel or a specific user.");
+
+m_helpRegistry[Screen_InChannel].elementHelp["transmitModeLabel"] =
+    tr("Shows the current transmit mode.");
+
+m_helpRegistry[Screen_InChannel].elementHelp["transmitStatusLabel"] =
+    tr("Shows whether you are transmitting.");
+
+m_helpRegistry[Screen_InChannel].elementHelp["newMessageIndicator"] =
+    tr("Shows who sent the most recent message.");
+
+m_helpRegistry[Screen_InChannel].elementHelp["userList"] =
+    tr("People currently in the channel, with speaking indicators and volume controls.");
 
     // AAC Main
     m_helpRegistry[Screen_AACMain].screenHelp =
@@ -744,25 +859,27 @@ m_aac->speechEngine()->speakNotification(
     //
     // CHANNEL JOIN / LEAVE → InChannelScreen
     //
-    connect(m_backend, &BackendAdapter::channelJoined,
-            this, [this](const QString& id) {
-        Q_UNUSED(id);
-if (m_earcons) m_earcons->channelJoin();
-    if (m_aac->speechEngine() && !m_aac->modes().fatigueMode)
-        m_aac->speechEngine()->speakNotification(
-            tr("Joined channel"),
-            SpeechPriority::System
-        );
-        showScreen(Screen_InChannel);
-    });
-
 connect(m_backend, &BackendAdapter::channelJoined,
         this, [this](const QString& id) {
     Q_UNUSED(id);
 
+    const AACModeFlags modes = m_aac->modes();
+
+    if (m_earcons && !modes.fatigueMode)
+        m_earcons->channelJoin();
+
+    if (m_aac->speechEngine() && !modes.fatigueMode)
+        m_aac->speechEngine()->speakNotification(
+            tr("Joined channel"),
+            SpeechPriority::System
+        );
+
+    // Step 1: show channel context
+    showScreen(Screen_InChannel);
+
+    // Step 2: auto-open AAC composition
     showScreen(Screen_AACMain);
 
-    // Auto-open AAC keyboard or symbol grid
     if (m_lastUsedAACInput == AACInput::Keyboard)
         showScreen(Screen_AACKeyboard);
     else
@@ -933,6 +1050,27 @@ connect(m_appSettingsScreen, &AppSettingsScreen::backRequested,
     if (m_earcons) m_earcons->navBack();
     showScreen(Screen_Connect);
 });
+connect(m_aacMainScreen, &AACMainScreen::recorderRequested,
+        this, [this]() {
+            showScreen(Screen_AACConversationRecorder);
+        });
+connect(m_backend, &BackendAdapter::userAudioFrame,
+        this, [this](int userId,
+                     const QByteArray& pcm,
+                     int sampleRate,
+                     int channels)
+{
+    QString username = m_backend->usernameForId(userId);
+    QString channelId = QString::number(TT_GetMyChannelID(m_backend->ttInstance()));
+
+    m_aac->recorder()->recordAudioFrame(
+        username,
+        channelId,
+        pcm,
+        sampleRate,
+        channels
+    );
+});
 
 void MainWindow::showScreen(ScreenId id)
 {
@@ -1052,6 +1190,21 @@ void MainWindow::keyPressEvent(QKeyEvent* e)
             m_aac->feedbackEngine()->hapticStrong();
     };
 
+// Close InChannelScreen modals first
+if (auto* scr = qobject_cast<InChannelScreen*>(currentAACScreen())) {
+    if (scr->isHistoryOpen()) {
+        scr->closeHistory();
+        hapticNav();
+        speakNav(tr("Closed history"));
+        return;
+    }
+    if (scr->isSendToPanelOpen()) {
+        scr->closeSendToPanel();
+        hapticNav();
+        speakNav(tr("Closed panel"));
+        return;
+    }
+}
     //
     // ────────────────────────────────────────────────
     //  UNIVERSAL AAC NAVIGATION
@@ -1245,6 +1398,7 @@ void MainWindow::speakContextualHelp()
 }
 void MainWindow::onSendToChannel(const AACMessage& msg)
 {
+    if (m_earcons) m_earcons->messageSent();
     if (!m_backend)
         return;
 
@@ -1252,11 +1406,25 @@ void MainWindow::onSendToChannel(const AACMessage& msg)
 
     m_backend->sendChannelMessage(enriched);
 
+// Auto-collapse send-to panel
+if (m_inChannelScreen && m_inChannelScreen->isSendToPanelOpen())
+    m_inChannelScreen->closeSendToPanel();
+
     if (m_aac && m_aac->history())
         m_aac->history()->addMessage(enriched.text);
+
+    // --- Recorder wiring ---
+    if (m_aac && m_aac->recorder()) {
+        m_aac->recorder()->recordAACMessageSent(
+            enriched,
+            QString::number(m_backend->currentChannelId()),
+            m_backend->currentUsername()
+        );
+    }
 }
 void MainWindow::onSendToUser(const AACMessage& msg)
 {
+    if (m_earcons) m_earcons->messageSent();
     if (!m_backend)
         return;
 
@@ -1264,8 +1432,21 @@ void MainWindow::onSendToUser(const AACMessage& msg)
 
     m_backend->sendPrivateMessage(enriched);
 
+// Auto-collapse send-to panel
+if (m_inChannelScreen && m_inChannelScreen->isSendToPanelOpen())
+    m_inChannelScreen->closeSendToPanel();
+
     if (m_aac && m_aac->history())
         m_aac->history()->addMessage(enriched.text);
+
+    // --- Recorder wiring ---
+    if (m_aac && m_aac->recorder()) {
+        m_aac->recorder()->recordAACMessageSent(
+            enriched,
+            QString::number(m_backend->currentChannelId()),
+            m_backend->currentUsername()
+        );
+    }
 }
 void MainWindow::onSpeakMessage(const AACMessage& msg)
 {
@@ -1279,4 +1460,108 @@ void MainWindow::onSpeakMessage(const AACMessage& msg)
 
     if (m_aac->history())
         m_aac->history()->addMessage(msg.text);
+
+    // --- Recorder wiring ---
+    if (m_aac && m_aac->recorder()) {
+        m_aac->recorder()->recordAACMessageSpoken(
+            msg,
+            QString::number(m_backend->currentChannelId()),
+            m_backend->currentUsername()
+        );
+    }
+}
+void MainWindow::onAACMessageReceived(const AACMessage& aac)
+{
+    if (!m_aac || !m_aac->recorder())
+        return;
+
+    m_aac->recorder()->recordAACMessageSent(
+        aac,
+        QString::number(aac.channelId),
+        aac.fromUsername
+    );
+}
+void MainWindow::onSelfVoiceEvent(const SelfVoiceEvent& ev)
+{
+    if (!m_aac || !m_aac->recorder())
+        return;
+
+    if (ev.state == SelfVoiceState::Transmitting) {
+        m_aac->recorder()->recordAudioToUser(
+            m_backend->currentUsername(),
+            QString::number(m_backend->currentChannelId())
+        );
+    }
+}
+void MainWindow::onOtherVoiceEvent(const OtherUserVoiceEvent& ev)
+{
+    if (!m_aac || !m_aac->recorder())
+        return;
+
+    if (ev.state == OtherUserVoiceState::Speaking) {
+        m_aac->recorder()->recordAudioFromUser(
+            ev.username,
+            QString::number(m_backend->currentChannelId())
+        );
+    }
+}
+void MainWindow::onChannelEvent(const ChannelEvent& ev)
+{
+    if (!m_aac || !m_aac->recorder())
+        return;
+
+    QString ch = QString::number(ev.channelId);
+
+    if (ev.type == ChannelEventType::Joined)
+        m_aac->recorder()->recordChannelJoin(ch);
+    else if (ev.type == ChannelEventType::Left)
+        m_aac->recorder()->recordChannelLeave(ch);
+}
+void MainWindow::onChannelForcedLeave(const QString& reason)
+{
+    if (!m_aac || !m_aac->recorder())
+        return;
+
+    m_aac->recorder()->recordSystemNotification(
+        reason,
+        QString::number(m_backend->currentChannelId())
+    );
+}
+void MainWindow::onConnectionStateChanged(BackendAdapter::ConnectionState st)
+{
+    if (!m_aac || !m_aac->recorder())
+        return;
+
+    switch (st) {
+    case BackendAdapter::ConnectionState::Connecting:
+        m_aac->recorder()->recordSystemNotification("Connecting...");
+        break;
+
+    case BackendAdapter::ConnectionState::Connected:
+        m_aac->recorder()->recordSystemNotification("Connection restored");
+        break;
+
+    case BackendAdapter::ConnectionState::Disconnected:
+        m_aac->recorder()->recordSystemNotification("Connection lost");
+        break;
+
+    case BackendAdapter::ConnectionState::Error:
+        m_aac->recorder()->recordSystemNotification("Connection failed");
+        break;
+
+    default:
+        break;
+    }
+}
+void MainWindow::onTransmitStateChanged(bool enabled)
+{
+    if (!m_aac || !m_aac->recorder())
+        return;
+
+    QString ch = QString::number(m_backend->currentChannelId());
+
+    if (enabled)
+        m_aac->recorder()->recordTransmitOn(ch);
+    else
+        m_aac->recorder()->recordTransmitOff(ch);
 }

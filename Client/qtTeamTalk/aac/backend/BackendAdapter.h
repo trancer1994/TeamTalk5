@@ -9,7 +9,7 @@
 
 #include "aac/models/AACMessage.h"
 #include "BackendEvents.h"
-#include "aac/core/AACFramework.h"   // Needed for feedback + accessibility
+#include "AACFramework.h"   // Needed for feedback + accessibility
 
 class BackendAdapter : public QObject {
     Q_OBJECT
@@ -66,6 +66,10 @@ signals:
 
     // AAC text message event (channel + private)
     void aacMessageReceived(const AACMessage& msg);
+    void userAudioFrame(int userId,
+                        const QByteArray& pcm,
+                        int sampleRate,
+                        int channels);
 
 private:
     // TeamTalk instance

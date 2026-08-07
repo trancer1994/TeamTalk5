@@ -1,7 +1,5 @@
 #include "AACSpeechSettingsScreen.h"
-
-#include "AACButton.h"
-#include "AACToggle.h"
+#include "AACKeyButton.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>

@@ -47,41 +47,13 @@ public slots:
     void setMode(KeyboardMode mode);
     void onFreezeStateChanged(bool frozen);
     void onHighContrastChanged(bool enabled);
-
-    // Curated strip scanning toggle
-    void setCuratedStripScanningEnabled(bool enabled) {
-        m_scanCuratedStrip = enabled;
-        updateUnifiedHighlight();
-    }
-
-    // Scanning entry points
-    void startRowScan();
-    void startColumnScan();
-    void activateScanTarget();
-
-    // Step scanning controls
-    void handleStepNext();
-    void handleStepPrevious();
-    void handleStepSelect();
-
-    // Dwell tick (for curated strip dwell)
-    void onDwellTick();
-
-    // High‑level toggles (for external controller)
-    void setCoreSymbolsFirst(bool enabled);
-    void setCuratedStripDwellEnabled(bool enabled);
     void setHighContrastEnabled(bool enabled);
-    void setFreezeEnabled(bool enabled);
-    void stopScan();
-    void setSemanticHighlight(const QString& tag);
 
 signals:
     void characterTyped(const QString& text);
     void backspacePressed();
     void spacePressed();
     void enterPressed();
-    void actionTriggered(const QString& tag);
-    void symbolSemantic(const QString& tag);
     void modeChanged(KeyboardMode mode);
     void shiftStateChanged(bool shiftOn);
     void predictionInserted(const QString& word);
@@ -91,8 +63,6 @@ signals:
     void curatedStripSymbolsChanged(const QStringList& symbols);
 
     // Grid navigation
-    void moveCursorLeft();
-    void moveCursorRight();
     void clearRequested();
     void deleteWordRequested();
 
@@ -191,20 +161,6 @@ private:
     bool m_frozen = false;
     bool m_highContrast = false;
 
-    // Curated strip scanning toggle
-    bool m_scanCuratedStrip = true;
-
-    // Scanning
-    bool m_scanning = false;
-    int m_scanRow = 0;
-    int m_scanCol = 0;
-    QPointer<AACKeyButton> m_currentHighlightedButton;
-
-    // Scanning behaviour flags
-    bool m_coreSymbolsFirst = true;   // curated strip row first when scanning
-    bool m_curatedStripDwell = false; // dwell activation on curated strip
-QTimer* m_scanTimer = nullptr;
-
     // Backspace repeat
     QTimer* m_backspaceRepeatTimer = nullptr;
 
@@ -216,19 +172,4 @@ QTimer* m_scanTimer = nullptr;
     QVector<QStringList> m_numbersRows;
     QVector<QStringList> m_symbolsRows;
     QStringList m_gridItems;
-
-    // Highlight helpers
-    AACKeyButton* highlightedButton() const;
-    void updateUnifiedHighlight();
-
-    void moveHighlightLeft();
-    void moveHighlightRight();
-    void moveHighlightUp();
-    void moveHighlightDown();
-
-    int maxRow() const;
-    int maxCol() const;
-
-    void moveHighlightToNextItem();
-    void moveHighlightToPreviousItem();
 };

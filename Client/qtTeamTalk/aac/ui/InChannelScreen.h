@@ -6,8 +6,8 @@
 #include <QSet>
 #include <QList>
 
-#include "aac/AACFramework.h"      // AACScreenAdapter, AACAccessibilityManager
-#include "aac/AACKeyButton.h"
+#include "AACFramework.h"      // AACScreenAdapter, AACAccessibilityManager
+#include "AACKeyButton.h"
 #include "backend/BackendAdapter.h"
 
 class AACMainScreen;
@@ -50,7 +50,12 @@ private slots:
 private:
     void updatePresenceSummary();
     void updateSendToButtonLabel();
-    void updateMessageLog();   // NEW
+bool isHistoryOpen() const { return m_historyContainer->isVisible(); }
+void closeHistory() { m_historyContainer->setVisible(false); }
+
+bool isSendToPanelOpen() const { return m_sendToPanel->isVisible(); }
+void closeSendToPanel() { m_sendToPanel->setVisible(false); }
+    void updateMessageLog();
 
     AACAccessibilityManager* m_aac = nullptr;
     BackendAdapter* m_backend = nullptr;
@@ -67,7 +72,7 @@ private:
     UserListWidget* m_userList = nullptr;
 
 QLabel* m_newMessageIndicator = nullptr;
-    QLabel* m_messageLog = nullptr;        // NEW
+    QListWidget* m_messageLog = nullptr;        // NEW
     QStringList m_messageBuffer;           // NEW
 QWidget* m_sendToPanel = nullptr;
 
@@ -82,4 +87,9 @@ QWidget* m_sendToPanel = nullptr;
 
     bool m_sendToChannel = true;
     QString m_currentUserRecipient;
+int m_newMessageCount = 0;
+    AACMessageHistoryViewer* m_historyViewer = nullptr;
+AACKeyButton* m_closeHistoryButton = nullptr;
+QWidget* m_historyContainer = nullptr;
+AACKeyButton* m_historyButton = nullptr;
 };

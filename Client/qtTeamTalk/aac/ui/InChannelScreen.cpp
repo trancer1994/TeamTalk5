@@ -4,7 +4,7 @@
 #include <QVBoxLayout>
 #include <QPixmap>
 
-#include "aac/AACMainScreen.h"
+#include "AACMainScreen.h"
 
 // ------------------------------------------------------------
 // UserRowWidget: one row in the user list (visual only)
@@ -22,15 +22,19 @@ public:
         , m_aac(aac)
         , m_backend(backend)
     {
-setFocusPolicy(Qt::StrongFocus);
+setFocusPolicy(Qt::NoFocus);
 setAccessibleName(username);
+setAccessibleDescription(tr("User %1 with volume controls and speaking indicator").arg(username));
+setAccessibleRole(QAccessible::ListItem);
 
         QHBoxLayout* lay = new QHBoxLayout(this);
         lay->setContentsMargins(4, 2, 4, 2);
         lay->setSpacing(8);
 
         m_nameLabel = new QLabel(username, this);
+m_nameLabel->setFocusPolicy(Qt::NoFocus);
         m_micLabel  = new QLabel(this);
+m_micLabel->setFocusPolicy(Qt::NoFocus);
         m_micLabel->setPixmap(QPixmap(":/icons/mic.png").scaled(24, 24));
         m_micLabel->setVisible(false);
 
@@ -40,14 +44,17 @@ setAccessibleName(username);
         m_resetBtn   = new AACKeyButton(tr("Normal"), m_aac, this);
 
         m_quieterBtn->setMinimumWidth(60);
+m_quieterBtn->setAccessibleName(tr("Decrease volume"));
         m_louderBtn->setMinimumWidth(60);
+m_louderBtn->setAccessibleName(tr("Increase volume"));
         m_resetBtn->setMinimumWidth(90);
+m_resetBtn->setAccessibleName(tr("Reset volume to normal"));
 
         connect(m_quieterBtn, &AACKeyButton::keyActivated,
-                this, [this](const QString&) { adjustVolume(-5); });
+                this, [this](const QString&) { adjustVolume(-10); });
 
         connect(m_louderBtn, &AACKeyButton::keyActivated,
-                this, [this](const QString&) { adjustVolume(+5); });
+                this, [this](const QString&) { adjustVolume(+10); });
 
         connect(m_resetBtn, &AACKeyButton::keyActivated,
                 this, [this](const QString&) { resetVolume(); });
@@ -117,6 +124,21 @@ private:
     BackendAdapter* m_backend = nullptr;
 };
 
+void updateUser(const QString& username,
+                int userId,
+                AACAccessibilityManager* aac,
+                BackendAdapter* backend)
+{
+    m_nameLabel->setText(username);
+    m_userId = userId;
+    m_aac = aac;
+    m_backend = backend;
+
+    setAccessibleName(username);
+    setAccessibleDescription(
+        tr("User %1 with volume controls and speaking indicator").arg(username)
+    );
+}
 // ------------------------------------------------------------
 // UserListWidget: static list of users in the channel (visual only)
 // ------------------------------------------------------------
@@ -128,33 +150,35 @@ public:
     {
         m_layout = new QVBoxLayout(this);
         m_layout->setContentsMargins(0, 0, 0, 0);
-        m_layout->setSpacing(4);
+        m_layout->setSpacing(8);
+setAccessibleName(tr("User list"));
+setAccessibleDescription(tr("People currently in the channel"));
+setAccessibleRole(QAccessible::List);
+setFocusPolicy(Qt::NoFocus);
     }
-
-void setUsers(const QList<QString>& usernames,
-              const QList<int>& userIds,
-              AACAccessibilityManager* aac,
-              BackendAdapter* backend)
+void UserListWidget::setUsers(const QList<QString>& usernames,
+                              const QList<int>& userIds,
+                              AACAccessibilityManager* aac,
+                              BackendAdapter* backend)
 {
-    // Clear layout and rows
-    while (QLayoutItem* item = m_layout->takeAt(0)) {
-        delete item->widget();
-        delete item;
-    }
-    m_rows.clear();
-
     const int count = qMin(usernames.size(), userIds.size());
-    for (int i = 0; i < count; ++i) {
-        auto* row = new UserRowWidget(usernames[i],
-                                      userIds[i],
-                                      aac,
-                                      backend,
-                                      this);
+
+    // Resize rows if needed
+    while (m_rows.size() < count) {
+        auto* row = new UserRowWidget("", 0, aac, backend, this);
         m_rows.append(row);
         m_layout->addWidget(row);
     }
 
-    m_layout->addStretch(1);
+    // Hide extra rows
+    for (int i = count; i < m_rows.size(); ++i)
+        m_rows[i]->setVisible(false);
+
+    // Update visible rows
+    for (int i = 0; i < count; ++i) {
+        m_rows[i]->setVisible(true);
+        m_rows[i]->updateUser(usernames[i], userIds[i], aac, backend);
+    }
 }
 
     void setUserSpeaking(const QString& username, bool speaking)
@@ -162,56 +186,141 @@ void setUsers(const QList<QString>& usernames,
         for (auto* row : m_rows) {
             if (row->username() == username) {
                 row->setSpeaking(speaking);
+row->setFocusPolicy(Qt::NoFocus);
                 return;
             }
         }
     }
 void InChannelScreen::keyPressEvent(QKeyEvent* e)
 {
-    // ⭐ F6: Jump to message log (blind‑friendly, AAC‑safe)
-    if (e->key() == Qt::Key_F6) {
-        if (m_messageLog) {
-            m_messageLog->setFocus();
+// ⭐ F2: Speak current recipient
+if (e->key() == Qt::Key_F2) {
+    if (m_aac && m_aac->speechEngine() && !m_aac->modes().fatigueMode) {
+        QString rec = m_sendToChannel
+            ? tr("Sending to channel")
+            : tr("Sending to %1").arg(m_currentUserRecipient);
+        m_aac->speechEngine()->speakNotification(rec);
+    }
+    return;
+}
+// ⭐ Shift+F3: Speak presence summary (AAC‑native, avoids global conflict)
+if (e->key() == Qt::Key_F3 && (e->modifiers() & Qt::ShiftModifier)) {
+    if (m_aac && m_aac->speechEngine() && !m_aac->modes().fatigueMode)
+        m_aac->speechEngine()->speakNotification(m_presenceLabel->text());
+    return;
+}
+    // ⭐ F4: Speak channel status (speaking + transmit + presence)
+    if (e->key() == Qt::Key_F4) {
+        if (m_aac && m_aac->speechEngine() && !m_aac->modes().fatigueMode) {
+            QString status = QString("%1. %2. %3.")
+                .arg(m_speakingLabel->text())
+                .arg(m_transmitStatusLabel->text())
+                .arg(m_presenceLabel->text());
+            m_aac->speechEngine()->speakNotification(status);
         }
         return;
     }
 
-    QWidget::keyPressEvent(e);
+// ⭐ Shift+F4: Speak active speakers
+if (e->key() == Qt::Key_F4 && (e->modifiers() & Qt::ShiftModifier)) {
+    if (m_aac && m_aac->speechEngine() && !m_aac->modes().fatigueMode) {
+        if (m_activeSpeakers.isEmpty()) {
+            m_aac->speechEngine()->speakNotification(tr("No one is speaking"));
+        } else {
+            QStringList names;
+            for (int id : m_activeSpeakers)
+                names << m_backend->usernameForId(id);
+            m_aac->speechEngine()->speakNotification(
+                tr("Active speakers: %1").arg(names.join(", "))
+            );
+        }
+    }
+    return;
 }
-    void keyPressEvent(QKeyEvent* e) override
-    {
-        if (m_rows.isEmpty()) {
-            QWidget::keyPressEvent(e);
-            return;
+    // ⭐ F5: Speak last message without entering the log
+    if (e->key() == Qt::Key_F5) {
+        if (m_messageLog && m_messageLog->count() > 0 &&
+            m_aac && m_aac->speechEngine() && !m_aac->modes().fatigueMode) {
+            auto* item = m_messageLog->item(m_messageLog->count() - 1);
+            m_aac->speechEngine()->speakNotification(item->text());
         }
-
-        int idx = m_rows.indexOf(qobject_cast<UserRowWidget*>(focusWidget()));
-        if (idx < 0)
-            idx = 0;
-
-        switch (e->key()) {
-        case Qt::Key_Up:
-            idx = qMax(0, idx - 1);
-            m_rows[idx]->setFocus();
-            return;
-
-        case Qt::Key_Down:
-            idx = qMin(m_rows.size() - 1, idx + 1);
-            m_rows[idx]->setFocus();
-            return;
-
-        case Qt::Key_Home:
-            m_rows.first()->setFocus();
-            return;
-
-        case Qt::Key_End:
-            m_rows.last()->setFocus();
-            return;
-        }
-
-        QWidget::keyPressEvent(e);
+        return;
     }
 
+    // ⭐ F6: Jump to message log (blind‑friendly, AAC‑safe)
+    if (e->key() == Qt::Key_F6) {
+        if (m_messageLog) {
+            m_messageLog->setFocus();
+
+            // Announce BEFORE resetting
+            if (m_aac && m_aac->speechEngine() && !m_aac->modes().fatigueMode) {
+                if (m_newMessageCount > 0) {
+                    m_aac->speechEngine()->speakNotification(
+                        tr("Message log: %1 new messages").arg(m_newMessageCount)
+                    );
+                } else {
+                    m_aac->speechEngine()->speakNotification(tr("Message log"));
+                }
+            }
+
+            // Reset AFTER announcing
+            m_newMessageCount = 0;
+            m_newMessageIndicator->clear();
+        }
+        return;
+    }
+// ⭐ Shift+F6: Speak unread count
+if (e->key() == Qt::Key_F6 && (e->modifiers() & Qt::ShiftModifier)) {
+    if (m_aac && m_aac->speechEngine() && !m_aac->modes().fatigueMode) {
+        QString msg = (m_newMessageCount > 0)
+            ? tr("%1 unread messages").arg(m_newMessageCount)
+            : tr("No unread messages");
+        m_aac->speechEngine()->speakNotification(msg);
+    }
+    return;
+}
+// ⭐ F7: Toggle AACMessageHistoryViewer (AAC‑modal screen)
+if (e->key() == Qt::Key_F7) {
+    if (!m_historyContainer || !m_historyViewer)
+        return;
+
+    if (m_historyContainer->isVisible()) {
+        // Close
+        m_historyContainer->setVisible(false);
+        this->setFocus();
+
+        if (m_aac && m_aac->speechEngine() && !m_aac->modes().fatigueMode)
+            m_aac->speechEngine()->speakNotification(tr("Closed history"));
+    } else {
+        // Open
+        m_historyContainer->setVisible(true);
+        m_historyContainer->raise();
+        m_historyViewer->setFocus();
+
+        if (m_aac && m_aac->speechEngine() && !m_aac->modes().fatigueMode)
+            m_aac->speechEngine()->speakNotification(tr("Conversation history"));
+
+        m_historyViewer->jumpToLastEvent();
+    }
+    return;
+}
+// ⭐ Shift+F10: Speak transmit status
+if (e->key() == Qt::Key_F10 && (e->modifiers() & Qt::ShiftModifier)) {
+    if (m_aac && m_aac->speechEngine() && !m_aac->modes().fatigueMode) {
+        m_aac->speechEngine()->speakNotification(m_transmitStatusLabel->text());
+    }
+    return;
+}
+// ⭐ Shift+F11: Speak channel name
+if (e->key() == Qt::Key_F11 && (e->modifiers() & Qt::ShiftModifier)) {
+    if (m_aac && m_aac->speechEngine() && !m_aac->modes().fatigueMode) {
+        m_aac->speechEngine()->speakNotification(m_channelLabel->text());
+    }
+    return;
+}
+    // Default handling
+    QWidget::keyPressEvent(e);
+}
 private:
     QVBoxLayout* m_layout = nullptr;
     QList<UserRowWidget*> m_rows;
@@ -233,63 +342,177 @@ InChannelScreen::InChannelScreen(AACAccessibilityManager* aac,
 
     m_rootLayout = new QVBoxLayout(this);
     m_rootLayout->setContentsMargins(8, 8, 8, 8);
-    m_rootLayout->setSpacing(8);
+    m_rootLayout->setSpacing(12);
 
     m_channelLabel   = new QLabel(tr("Channel"), this);
+m_channelLabel->setFocusPolicy(Qt::NoFocus);
+m_channelLabel->setAccessibleName(tr("Channel name"));
+m_channelLabel->setAccessibleRole(QAccessible::StaticText);
     m_eventLabel     = new QLabel(this);
-    m_speakingLabel  = new QLabel(tr("No one is speaking"), this);
-
-m_speakingLabel->setFocusPolicy(Qt::StrongFocus);
+m_eventLabel->setAccessibleRole(QAccessible::StaticText);
+    m_speakingLabel  = new QLabel(tr("Channel quiet"), this);
+m_speakingLabel->setFocusPolicy(Qt::NoFocus);
 m_speakingLabel->setAccessibleName(tr("Speaking status"));
-
-    m_presenceLabel  = new QLabel(tr("People here: (none)"), this);
-    m_transmitModeLabel = new QLabel(tr("Transmit mode: Tap to toggle"), this);
-m_transmitStatusLabel = new QLabel(tr("Transmit off"), this);
+m_speakingLabel->setAccessibleRole(QAccessible::StaticText);
+    m_presenceLabel  = new QLabel(tr("Participants: no one here"), this);
+m_presenceLabel->setAccessibleRole(QAccessible::StaticText);
+    m_transmitModeLabel = new QLabel(tr("Transmit mode: Toggle transmit"), this);
+m_transmitModeLabel->setFocusPolicy(Qt::NoFocus);
+m_transmitModeLabel->setAccessibleName(tr("Transmit mode"));
+m_transmitModeLabel->setAccessibleDescription(
+    tr("Tap to toggle, continuous, voice activation, or auto silence")
+);
+m_transmitModeLabel->setAccessibleRole(QAccessible::StaticText);
+m_transmitModeLabel->setObjectName("transmitModeLabel");
+m_transmitStatusLabel = new QLabel(tr("Not transmitting"), this);
 m_transmitStatusLabel->setAccessibleName(tr("Transmit status"));
-m_transmitStatusLabel->setFocusPolicy(Qt::StrongFocus);
-m_transmitStatusLabel->setVisible(false);
+m_transmitStatusLabel->setAccessibleRole(QAccessible::StaticText);
+m_transmitStatusLabel->setFocusPolicy(Qt::NoFocus);
+m_transmitStatusLabel->setVisible(true);
+m_transmitStatusLabel->setObjectName("transmitStatusLabel");
 
 m_newMessageIndicator = new QLabel(this);
+m_newMessageIndicator->setObjectName("newMessageIndicator");
 m_newMessageIndicator->setText(QString());
 m_newMessageIndicator->setAccessibleName(tr("New message indicator"));
+m_newMessageIndicator->setAccessibleRole(QAccessible::StaticText);
 m_newMessageIndicator->setFocusPolicy(Qt::NoFocus);
+            m_newMessageIndicator->clear();
+        });
 
-    m_presenceLabel->setFocusPolicy(Qt::StrongFocus);
+    m_presenceLabel->setFocusPolicy(Qt::NoFocus);
     m_presenceLabel->setAccessibleName(tr("People here"));
 
     m_userList = new UserListWidget(this);
+m_userList->setObjectName("userList");
 
 // NEW: instantiate AACMainScreen
 m_aacMain = new AACMainScreen(m_aac, this);
 
-    // NEW: message log
-    m_messageLog = new QLabel(this);
-    m_messageLog->setWordWrap(true);
-    m_messageLog->setText(tr("No messages yet"));
-    m_messageLog->setAccessibleName(tr("Message log"));
-    m_messageLog->setFocusPolicy(Qt::NoFocus);
+// ------------------------------------------------------------
+// History Viewer (AAC-modal screen, visually prominent)
+// ------------------------------------------------------------
+m_historyContainer = new QWidget(this);
+m_historyContainer->setVisible(false);
+m_historyContainer->setAccessibleName(tr("Conversation history screen"));
+m_historyContainer->setAccessibleRole(QAccessible::Pane);
+m_historyContainer->setStyleSheet("background-color: #202020;"); // visually distinct
 
+QVBoxLayout* histLay = new QVBoxLayout(m_historyContainer);
+histLay->setContentsMargins(12, 12, 12, 12);
+histLay->setSpacing(8);
+
+// Header
+QLabel* histHeader = new QLabel(tr("Conversation history"), m_historyContainer);
+histHeader->setAccessibleName(tr("Conversation history header"));
+histHeader->setAccessibleRole(QAccessible::Heading);
+histHeader->setFocusPolicy(Qt::NoFocus);
+histHeader->setStyleSheet("font-size: 22px; font-weight: bold; color: white;");
+histLay->addWidget(histHeader);
+
+// Close button
+m_closeHistoryButton = new AACKeyButton(tr("Close history"), m_aac, m_historyContainer);
+m_closeHistoryButton->setAccessibleName(tr("Close history"));
+m_closeHistoryButton->setAccessibleRole(QAccessible::Button);
+m_closeHistoryButton->setDeepWell(true);
+histLay->addWidget(m_closeHistoryButton);
+
+connect(m_closeHistoryButton, &AACKeyButton::keyActivated,
+        this, [this](const QString&) {
+            m_historyContainer->setVisible(false);
+            this->setFocus();
+        });
+
+// Actual viewer
+m_historyViewer = new AACMessageHistoryViewer(m_aac->history(), m_historyContainer);
+m_historyViewer->setAccessibleName(tr("Conversation history viewer"));
+m_historyViewer->setAccessibleRole(QAccessible::List);
+histLay->addWidget(m_historyViewer);
+
+// Add to root layout
+m_rootLayout->addWidget(m_historyContainer);
+
+m_messageLog = new QListWidget(this);
+m_messageLog->setAccessibleName(tr("Message log"));
+m_messageLog->setFocusPolicy(Qt::NoFocus);
+m_messageLog->setAccessibleRole(QAccessible::List);
+m_messageLog->setObjectName("messageLog");
+m_messageLog->setSelectionMode(QAbstractItemView::NoSelection);
+m_messageLog->setVerticalScrollMode(QAbstractItemView::ScrollPerPixel);
+m_messageLog->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+m_messageLog->setUniformItemSizes(true);
+m_messageLog->setSpacing(4);
+connect(m_messageLog, &QListWidget::itemActivated,
+        this, [this](QListWidgetItem*) {
+            m_newMessageIndicator->clear();
+        });
     m_sendToButton = new AACKeyButton(tr("Send to: Channel"), m_aac, this);
+m_sendToButton->setObjectName("sendToButton");
     connect(m_sendToButton, &AACKeyButton::keyActivated,
             this, [this](const QString&) { onSendToClicked(); });
 m_sendToPanel = new QWidget(this);
 m_sendToPanel->setVisible(false);
 m_sendToPanel->setAccessibleName(tr("Recipient choices"));
-
+m_sendToPanel->setFocusPolicy(Qt::NoFocus);
+m_sendToPanel->setAccessibleDescription(tr("Choose where to send your message"));
+m_sendToPanel->setAccessibleRole(QAccessible::Group);
 auto* sendToLayout = new QVBoxLayout(m_sendToPanel);
 sendToLayout->setContentsMargins(0,0,0,0);
 sendToLayout->setSpacing(4);
 
+auto* header = new QLabel(tr("Recipients"), this);
+header->setAccessibleName(tr("Recipient list"));
+header->setFocusPolicy(Qt::NoFocus);
+sendToLayout->addWidget(header);
+m_sendToChannelButton = new AACKeyButton(tr("Channel"), m_aac, this);
+m_sendToChannelButton->setAccessibleName(tr("Send to channel"));
+m_sendToChannelButton->setAccessibleRole(QAccessible::Button);
+m_sendToChannelButton->setFocusPolicy(Qt::NoFocus)
+m_sendToChannelButton->setDeepWell(true);
+sendToLayout->addWidget(m_sendToChannelButton);
+connect(m_sendToChannelButton, &AACKeyButton::keyActivated,
+        this, [this](const QString&) {
+            m_sendToChannel = true;
+            m_currentUserRecipient.clear();
+            updateSendToButtonLabel();
+            m_sendToPanel->setVisible(false);
+        });
+// Persistent user buttons (initially empty)
+for (const QString& u : m_usernames) {
+    auto* btn = new AACKeyButton(u, m_aac, this);
+    m_sendToUserButtons.append(btn);
+m_sendToUserButtons->setFocusPolicy(Qt::NoFocus)
+    sendToLayout->addWidget(btn);
+
+    connect(btn, &AACKeyButton::keyActivated,
+            this, [this, u](const QString&) {
+                m_sendToChannel = false;
+                m_currentUserRecipient = u;
+                updateSendToButtonLabel();
+                m_sendToPanel->setVisible(false);
+            });
+}
+m_closeSendToPanelButton = new AACKeyButton(tr("Close panel"), m_aac, this);
+m_closeSendToPanelButton->setFocusPolicy(Qt::NoFocus)
+m_closeSendToPanelButton->setDeepWell(true);
+sendToLayout->addWidget(m_closeSendToPanelButton);
+
+connect(m_closeSendToPanelButton, &AACKeyButton::keyActivated,
+        this, [this](const QString&) {
+            m_sendToPanel->setVisible(false);
+        });
     QHBoxLayout* controls = new QHBoxLayout();
     m_leaveButton = new AACKeyButton(tr("Leave"), m_aac, this);
+m_leaveButton->setAccessibleName(tr("Leave channel"));
+m_leaveButton->setAccessibleRole(QAccessible::Button);
+m_leaveButton->setFocusPolicy(Qt::NoFocus);
 m_leaveButton->setDeepWell(true);
-    m_volDownButton   = new AACKeyButton(tr("Quieter"), m_aac, this);
-    m_volUpButton     = new AACKeyButton(tr("Louder"), m_aac, this);
-    m_setNormalButton = new AACKeyButton(tr("Set as normal"), m_aac, this);
-
+    controls->addWidget(m_leaveButton);
     connect(m_leaveButton, &AACKeyButton::keyActivated,
             this, [this](const QString&) { onLeaveClicked(); });
 
+    m_volDownButton   = new AACKeyButton(tr("Quieter"), m_aac, this);
+    controls->addWidget(m_volDownButton);
     connect(m_volDownButton, &AACKeyButton::keyActivated,
             this, [this](const QString&) {
                 if (!m_aac || !m_backend)
@@ -300,6 +523,8 @@ m_leaveButton->setDeepWell(true);
                 m_backend->applyGlobalListeningVolume();
             });
 
+    m_volUpButton     = new AACKeyButton(tr("Louder"), m_aac, this);
+    controls->addWidget(m_volUpButton);
     connect(m_volUpButton, &AACKeyButton::keyActivated,
             this, [this](const QString&) {
                 if (!m_aac || !m_backend)
@@ -310,6 +535,8 @@ m_leaveButton->setDeepWell(true);
                 m_backend->applyGlobalListeningVolume();
             });
 
+    m_setNormalButton = new AACKeyButton(tr("Set as normal"), m_aac, this);
+    controls->addWidget(m_setNormalButton);
     connect(m_setNormalButton, &AACKeyButton::keyActivated,
             this, [this](const QString&) {
                 if (!m_aac || !m_backend)
@@ -318,11 +545,28 @@ m_leaveButton->setDeepWell(true);
                 const int percent = invRefVolume(ttvol);
                 m_aac->setGlobalListeningVolume(percent);
             });
+m_historyButton = new AACKeyButton(tr("History"), m_aac, this);
+m_historyButton->setAccessibleName(tr("Open conversation history"));
+m_historyButton->setAccessibleRole(QAccessible::Button);
+m_historyButton->setFocusPolicy(Qt::NoFocus);
+m_historyButton->setDeepWell(true);
+m_historyButton->setObjectName("historyButton");
+controls->addWidget(m_historyButton);
 
-    controls->addWidget(m_leaveButton);
-    controls->addWidget(m_volDownButton);
-    controls->addWidget(m_volUpButton);
-    controls->addWidget(m_setNormalButton);
+connect(m_historyButton, &AACKeyButton::keyActivated,
+        this, [this](const QString&) {
+            if (!m_historyContainer || !m_historyViewer)
+                return;
+
+            m_historyContainer->setVisible(true);
+            m_historyContainer->raise();
+            m_historyViewer->setFocus();
+
+            if (m_aac && m_aac->speechEngine() && !m_aac->modes().fatigueMode)
+                m_aac->speechEngine()->speakNotification(tr("Conversation history"));
+
+            m_historyViewer->jumpToLastEvent();
+        });
     controls->addStretch(1);
 
     m_rootLayout->addWidget(m_channelLabel);
@@ -330,10 +574,12 @@ m_leaveButton->setDeepWell(true);
     m_rootLayout->addWidget(m_speakingLabel);
     m_rootLayout->addWidget(m_presenceLabel);
     m_rootLayout->addWidget(m_userList);
+m_rootLayout->addSpacing(8);
     m_rootLayout->addWidget(m_transmitModeLabel);
 m_rootLayout->addWidget(m_transmitStatusLabel);
 m_rootLayout->addWidget(m_newMessageIndicator);
     m_rootLayout->addWidget(m_messageLog);
+m_rootLayout->addSpacing(8);
     m_rootLayout->addWidget(m_sendToButton);
 m_rootLayout->addSpacing(4);
 m_rootLayout->addWidget(m_sendToPanel);
@@ -347,19 +593,31 @@ m_rootLayout->addWidget(m_sendToPanel);
 }
 QString InChannelScreen::contextualHelp() const
 {
-    return tr("InChannel. "
-               "Press F8 to toggle transmit. "
-               "Press F9 to mute or unmute. "
-               "Press F10 to silence speech. "
-               "Press F11 to clear your message. "
-               "Press Escape to leave the channel.");
+    return tr(
+        "InChannel. "
+        "Press F2 to speak the current message recipient. "
+        "Press Shift+F3 to speak who is here. "
+        "Press F4 to speak channel status. "
+        "Press Shift+F4 to speak active speakers. "
+        "Press F5 to speak the last message. "
+        "Press F6 to focus the message log. "
+        "Press Shift+F6 to speak unread message count. "
+        "Press F7 to toggle conversation history. "
+        "Press Shift+F10 to speak transmit status. "
+        "Press Shift+F11 to speak the channel name. "
+        "Press F8 to toggle transmit. "
+        "Press F9 to mute or unmute. "
+        "Press F10 to silence speech. "
+        "Press F11 to clear your message. "
+        "Press Escape to leave the channel."
+    );
 }
 QList<QWidget*> InChannelScreen::interactiveWidgets() const
 {
     QList<QWidget*> out;
-    out << const_cast<AACMainScreen*>(m_aacMain);
     out << const_cast<AACKeyButton*>(m_sendToButton);
     out << const_cast<AACKeyButton*>(m_leaveButton);
+    out << const_cast<AACMainScreen*>(m_aacMain);
     return out;
 }
 
@@ -399,7 +657,20 @@ void InChannelScreen::setChannelName(const QString& name)
 void InChannelScreen::setTransmitStatus(bool enabled)
 {
     m_transmitStatusLabel->setText(
-        enabled ? tr("Transmit on") : tr("Transmit off")
+        enabled ? tr("Transmit on") : tr("Not transmitting")
+    );
+}
+void UserRowWidget::setSpeaking(bool speaking)
+{
+    m_micLabel->setVisible(speaking);
+    setAccessibleDescription(
+        speaking
+        ? tr("User %1 is speaking, volume controls available").arg(username())
+        : tr("User %1 is not transmitting, volume controls available").arg(username())
+);
+
+m_micLabel->setAccessibleName(
+    speaking ? tr("Speaking indicator") : tr("Not transmitting indicator")
     );
 }
 void InChannelScreen::updateSelfVoiceState(const SelfVoiceState& state)
@@ -412,7 +683,9 @@ void InChannelScreen::updateSelfVoiceState(const SelfVoiceState& state)
     if (state == SelfVoiceState::Transmitting)
         m_eventLabel->setText(tr("You are transmitting…"));
     else
-        m_eventLabel->setText(tr("Silent"));
+        m_eventLabel->setText(tr("Not transmitting"));
+m_eventLabel->setFocusPolicy(Qt::NoFocus);
+m_eventLabel->setAccessibleName(tr("Event status"));
 }
 void InChannelScreen::updateOtherUserVoiceState(const OtherUserVoiceEvent& event)
 {
@@ -425,14 +698,14 @@ void InChannelScreen::updateOtherUserVoiceState(const OtherUserVoiceEvent& event
         m_activeSpeakers.remove(event.userId);
 
     if (m_activeSpeakers.isEmpty()) {
-        m_speakingLabel->setText(tr("No one is speaking"));
+        m_speakingLabel->setText(tr("Channel quiet"));
     }
     else if (m_activeSpeakers.size() == 1) {
         m_speakingLabel->setText(tr("%1 is speaking…").arg(event.username));
     }
     else {
         m_speakingLabel->setText(
-            tr("%1 people are speaking…").arg(m_activeSpeakers.size()));
+            tr("Multiple people are speaking…").arg(m_activeSpeakers.size()));
     }
 }
 
@@ -498,7 +771,7 @@ void InChannelScreen::setTransmitModeLabel(BackendAdapter::AACTransmitMode mode)
 {
     switch (mode) {
     case BackendAdapter::AACTransmitMode::TapToToggle:
-        m_transmitModeLabel->setText(tr("Transmit mode: Tap to toggle"));
+        m_transmitModeLabel->setText(tr("Transmit mode: Toggle transmit"));
         break;
     case BackendAdapter::AACTransmitMode::Continuous:
         m_transmitModeLabel->setText(tr("Transmit mode: Continuous"));
@@ -510,6 +783,8 @@ void InChannelScreen::setTransmitModeLabel(BackendAdapter::AACTransmitMode mode)
         m_transmitModeLabel->setText(tr("Transmit mode: Auto‑silence"));
         break;
     }
+    if (m_aac && m_aac->speechEngine() && !m_aac->modes().fatigueMode)
+        m_aac->speechEngine()->speakNotification(m_transmitModeLabel->text());
 }
 
 void InChannelScreen::onAACMessageReceived(const AACMessage& msg)
@@ -558,23 +833,36 @@ void InChannelScreen::onAACMessageReceived(const AACMessage& msg)
             prefix = tr("%1: ").arg(msg.fromUsername);
     }
 
-    QString line = prefix + msg.text;
+QString timestamp = QDateTime::currentDateTime().toString("HH:mm");
+QString line = QString("[%1] %2").arg(timestamp, prefix + msg.text);
 
-    // Append to buffer
-    m_messageBuffer.append(line);
-    while (m_messageBuffer.size() > 5)
-        m_messageBuffer.removeFirst();
+auto* item = new QListWidgetItem(line);
+item->setData(Qt::AccessibleDescriptionRole,
+              tr("%1 says at %2: %3")
+                  .arg(msg.fromUsername)
+                  .arg(timestamp)
+                  .arg(msg.text));
+m_messageLog->addItem(item);
+++m_newMessageCount;
+while (m_messageLog->count() > 20)
+    delete m_messageLog->takeItem(0);
 
-    updateMessageLog();
+m_messageLog->scrollToBottom();
+
+// Append to AACMessageHistory (viewer updates automatically)
+if (m_aac && m_aac->history()) {
+    AACMessageHistoryEvent ev;
+    ev.username  = msg.fromUsername;
+    ev.text      = msg.text;
+    ev.isPrivate = msg.isPrivate;
+    ev.timestamp = QDateTime::currentDateTime();
+
+    m_aac->history()->append(ev);
+}
 }
 void InChannelScreen::updateMessageLog()
 {
-    if (m_messageBuffer.isEmpty()) {
-        m_messageLog->setText(tr("No messages yet"));
-        return;
-    }
-
-    m_messageLog->setText(m_messageBuffer.join("\n"));
+    // No-op: QListWidget updates incrementally
 }
 
 void InChannelScreen::onLeaveClicked()
@@ -590,53 +878,8 @@ void InChannelScreen::onSendToClicked()
 if (show && m_aac && m_aac->speechEngine()) {
     m_aac->speechEngine()->speakNotification(tr("Choose message recipient"));
 }
-
     if (!show)
         return;
-
-    if (auto* lay = qobject_cast<QVBoxLayout*>(m_sendToPanel->layout())) {
-        if (auto* item = lay->itemAt(0)) {
-            if (auto* btn = qobject_cast<AACKeyButton*>(item->widget())) {
-                btn->setFocus();   // ⭐ This is the important line
-            }
-        }
-    }
-
-    // Rebuild panel
-    QLayoutItem* child;
-    while ((child = m_sendToPanel->layout()->takeAt(0)) != nullptr) {
-        delete child->widget();
-        delete child;
-    }
-
-    auto* lay = static_cast<QVBoxLayout*>(m_sendToPanel->layout());
-
-    // Channel button
-    {
-        auto* btn = new AACKeyButton(tr("Channel"), m_aac, this);
-btn->setDeepWell(true);
-        lay->addWidget(btn);
-        connect(btn, &AACKeyButton::keyActivated,
-                this, [this](const QString&) {
-                    m_sendToChannel = true;
-                    m_currentUserRecipient.clear();
-                    updateSendToButtonLabel();
-                    m_sendToPanel->setVisible(false);
-                });
-    }
-
-    // User buttons
-    for (const QString& u : m_usernames) {
-        auto* btn = new AACKeyButton(u, m_aac, this);
-        lay->addWidget(btn);
-        connect(btn, &AACKeyButton::keyActivated,
-                this, [this, u](const QString&) {
-                    m_sendToChannel = false;
-                    m_currentUserRecipient = u;
-                    updateSendToButtonLabel();
-                    m_sendToPanel->setVisible(false);
-                });
-    }
 }
 
 void InChannelScreen::updatePresenceSummary()

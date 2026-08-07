@@ -1,6 +1,8 @@
 #include "AACFramework.h"
-
+#include "AACElementRegistry.h"
+#include "AACConversationRecorderQtAdapter.h"
 #include <QTextToSpeech>
+
 #include <QtGlobal>
 #include <QPainter>
 #include <QPen>
@@ -39,6 +41,8 @@ AACAccessibilityManager::AACAccessibilityManager(QObject* parent)
 {
     s_instance = this;
 
+    m_registry = new AACElementRegistry(this);
+
     m_storage = std::make_unique<AACStorage>();
 
     m_layoutEngine      = new AACLayoutEngine(this, this);
@@ -49,6 +53,7 @@ AACAccessibilityManager::AACAccessibilityManager(QObject* parent)
     m_vocabularyManager->initialize();
 
     m_predictionEngine  = new AACPredictionEngine(this, this);
+m_audioEngine = new AACAudioEngine(this);
 
     connect(m_speechEngine, &AACSpeechEngine::speechStarted,
             this, &AACAccessibilityManager::speechStarted);
@@ -599,8 +604,59 @@ void AACLayoutEngine::applyLayout(AACScreenAdapter* screen)
 
     if (modes.predictiveStrip)
         applyPredictiveStrip(screen);
+
+// --- AAC semantic highlighting (refined, role‑aware) ---
+const bool suppressSemantic = m_mgr->modes().fatigueMode;
+for (QWidget* w : screen->interactiveWidgets()) {
+    AACElementMetadata md = m_mgr->registry()->metadata(w);
+    auto* key = qobject_cast<AACKeyButton*>(w);
+    if (!key)
+        continue;
+
+    // Suppress semantic highlight entirely in fatigue mode
+    if (suppressSemantic) {
+        key->setSemanticHighlighted(false, QColor());
+        key->setSemanticPulse(false);
+        continue;
+    }
+// Priority rules
+int priority = 0;
+
+if (md.role == "need")       priority = 3;   // highest
+else if (md.role == "emotion") priority = 2;
+else if (md.role == "social")  priority = 1;
+else if (md.role == "prediction") priority = 0;
+else if (md.role == "control")    priority = -1; // lowest
+
+// If priority is negative, suppress highlight
+if (priority < 0) {
+    key->setSemanticHighlighted(false, QColor());
+    key->setSemanticPulse(false);
+    continue;
+}
+// Pulse rule: urgent needs get a pulse
+bool pulse = false;
+
+if (md.role == "need" && md.urgency >= 2) {
+    pulse = true;
 }
 
+key->setSemanticPulse(pulse);
+
+    if (!md.semanticTag.isEmpty()) {
+        QColor color("#ff8800"); // default
+
+        if (md.role == "emotion")    color = QColor("#ff4080");   // pink
+        if (md.role == "need")       color = QColor("#ffb000");   // amber
+        if (md.role == "social")     color = QColor("#0088ff");   // blue
+        if (md.role == "control")    color = QColor("#888888");   // grey
+        if (md.role == "prediction") color = QColor("#00aa55");   // green
+
+        key->setSemanticHighlighted(true, color);
+    } else {
+        key->setSemanticHighlighted(false, QColor());
+    }
+}
 void AACLayoutEngine::applyLargeTargets(AACScreenAdapter* screen)
 {
     const bool enabled = m_mgr->modes().largeTargets;
@@ -689,10 +745,6 @@ void AACLayoutEngine::scaleLayout(QLayout* lay, bool enabled)
         lay->setContentsMargins(8, 8, 8, 8);
     }
 }
-
-// =====================================================================
-// AACFeedbackEngine — FULL REWRITE WITH FATIGUE + HAPTICS
-// =====================================================================
 
 AACFeedbackEngine::AACFeedbackEngine(AACAccessibilityManager* mgr, QObject* parent)
     : QObject(parent)
@@ -1697,22 +1749,37 @@ void AACSpeechEngine::echoOnSend(const QString& text)
     speak(text);
 }
 
+QByteArray AACSpeechEngine::synthesizeToPcm(const QString& text,
+                                            int& sampleRate,
+                                            int& channels)
+{
+    // Use QTextToSpeech to synthesize into a buffer instead of the speaker.
+    // Qt supports this via QAudioSink/QAudioSource in Qt6.
+    // For Qt5, you use a QAudioOutput with a QBuffer sink.
+
+    // For now, placeholder — you will wire this to your actual TTS backend.
+    sampleRate = 48000;
+    channels   = 1;
+
+    QByteArray pcm; // fill with your TTS PCM output
+    return pcm;
+}
 AACMessageHistory::AACMessageHistory(AACAccessibilityManager* mgr, QObject* parent)
     : QObject(parent)
     , m_mgr(mgr)
 {
 }
 
-void AACMessageHistory::addMessage(const QString& msg)
+void AACMessageHistory::addMessage(const AACMessageEvent& ev)
 {
-    if (msg.trimmed().isEmpty())
+    if (ev.text.trimmed().isEmpty())
         return;
 
-    m_history << msg;
+    m_history << ev;
     emit historyChanged(m_history);
 }
 
-QStringList AACMessageHistory::history() const
+QList<AACMessageEvent> AACMessageHistory::history() const
 {
     return m_history;
 }
@@ -1722,9 +1789,9 @@ void AACMessageHistory::replayMessage(int index)
     if (!m_mgr || index < 0 || index >= m_history.size())
         return;
 
-    const QString msg = m_history.at(index);
+    const AACMessageEvent& ev = m_history.at(index);
     if (AACSpeechEngine* s = m_mgr->speechEngine())
-        s->speak(msg);
+        s->speak(ev.text);
 }
 
 void AACMessageHistory::replayLast()
@@ -1732,9 +1799,39 @@ void AACMessageHistory::replayLast()
     if (!m_mgr || m_history.isEmpty())
         return;
 
-    const QString msg = m_history.last();
+    const AACMessageEvent& ev = m_history.last();
     if (AACSpeechEngine* s = m_mgr->speechEngine())
-        s->speak(msg);
+        s->speak(ev.text);
+}
+void AACMessageHistory::deleteEvent(const AACMessageHistoryEvent& ev)
+{
+    for (int i = 0; i < m_history.size(); ++i) {
+        const AACMessageHistoryEvent& cur = m_history.at(i);
+
+        // Compare by timestamp + text (safe enough for AAC history)
+        if (cur.timestamp == ev.timestamp && cur.text == ev.text) {
+            m_history.removeAt(i);
+            emit historyChanged(m_history);
+            return;
+        }
+    }
+}
+void AACMessageHistory::replayEvent(const AACMessageHistoryEvent& ev)
+{
+    if (!m_manager)
+        return;
+
+    auto* speech = m_manager->speechEngine();
+    if (!speech)
+        return;
+
+    speech->speak(ev.text);
+}
+void AACMessageHistoryViewer::refreshScanning()
+{
+    // Rebuild scanning groups using AACScreenBase API
+    rebuildInteractiveGroup(interactiveWidgets());
+    rebuildPrimaryGroup(primaryWidgets());
 }
 #include "AACFramework.h"
 #include "AACKeyboardScreen.h"
@@ -1745,6 +1842,7 @@ AACFramework::AACFramework(QObject* parent)
 {
     m_accessibility = new AACAccessibilityManager(this);
     m_keyboardScreen = new AACKeyboardScreen(m_accessibility);
+    m_recorder      = new AACConversationRecorderQtAdapter(m_accessibility, this);
 
     // Prediction → symbol highlight
     connect(m_accessibility->predictionEngine(),

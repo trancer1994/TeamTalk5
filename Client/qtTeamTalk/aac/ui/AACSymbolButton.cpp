@@ -1,5 +1,5 @@
 #include "AACSymbolButton.h"
-#include "aac/aac/AACFramework.h"
+#include "AACFramework.h"
 #include <QVBoxLayout>
 #include <QLabel>
 #include <QIcon>

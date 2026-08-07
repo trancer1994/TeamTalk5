@@ -1,8 +1,6 @@
 #include "AACSettingsScreen.h"
-#include "AACAccessibilityManager.h"
-#include "AACButton.h"
+#include "AACKeyButton.h"
 #include "AACToggle.h"
-
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QComboBox>
@@ -257,7 +255,7 @@ m_speakIncoming = new AACToggle(tr("Speak incoming messages"), this);
 commBlock->addWidget(m_speakIncoming);
 
 // Order is AAC‑friendly: simplest → most automatic
-m_transmitMode->addItem(tr("Tap to toggle"),      (int)BackendAdapter::AACTransmitMode::TapToToggle);
+m_transmitMode->addItem(tr("Toggle transmit"),      (int)BackendAdapter::AACTransmitMode::TapToToggle);
 m_transmitMode->addItem(tr("Continuous"),         (int)BackendAdapter::AACTransmitMode::Continuous);
 m_transmitMode->addItem(tr("Voice activation"),   (int)BackendAdapter::AACTransmitMode::VoiceActivation);
 m_transmitMode->addItem(tr("Auto‑silence"),       (int)BackendAdapter::AACTransmitMode::AutoSilence);

@@ -2,6 +2,7 @@
 
 #include <QWidget>
 #include <QVBoxLayout>
+#include <QTabWidget>
 
 #include "AACScreenBase.h"
 #include "aac/AACFramework.h"
@@ -33,6 +34,7 @@ void speakAACMessage(const AACMessage& msg);
     void doneRequested();
     void keyboardRequested();
     void symbolGridRequested();
+    void recorderRequested();
 
 private slots:
     void onEnterPressed();
@@ -54,10 +56,18 @@ AACMessage buildAACMessageForSend() const;
 enum class SendMode { Channel, Private, Speak };
 SendMode m_sendMode = SendMode::Channel;
     AACAccessibilityManager* m_aac = nullptr;
+AACKeyButton* m_keyboardButton = nullptr;
+AACKeyButton* m_symbolsButton = nullptr;
+AACKeyButton* m_sendChannelBtn = nullptr;
+AACKeyButton* m_sendPrivateBtn = nullptr;
+AACKeyButton* m_speakBtn = nullptr;
+AACKeyButton* m_historyButton = nullptr;
+AACMessageHistoryViewer* m_historyViewer = nullptr;
 
 QLabel* m_semanticLabel = nullptr;
 QLabel* m_cursorSemanticLabel = nullptr;
-    QVBoxLayout* m_rootLayout = nullptr;
+    QVBoxLayout* m_outerLayout = nullptr;
+QTabWidget* m_tabs = nullptr;
 
     AACTextBar*        m_textBar        = nullptr;
     PredictiveStrip*   m_predictiveStrip = nullptr;

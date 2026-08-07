@@ -1,5 +1,4 @@
 #include "AACScreenBase.h"
-#include "AACAccessibilityManager.h"
 #include <QKeyEvent>
 
 AACScreenBase::AACScreenBase(AACAccessibilityManager* aac,
@@ -38,8 +37,19 @@ void AACScreenBase::keyPressEvent(QKeyEvent* e)
         if (m_aac->earcons())
             m_aac->earcons()->help();
 
-        if (m_aac->speechEngine())
-            m_aac->speechEngine()->speak(contextualHelp());
+QString help = contextualHelp();
+
+// If helpMode is on, override with AAC metadata for focused widget
+if (m_aac->modes().helpMode) {
+    QWidget* f = focusWidget();
+    if (f && m_aac->registry()) {
+        AACElementMetadata md = m_aac->registry()->metadata(f);
+        if (!md.helpText.isEmpty())
+            help = md.helpText;
+    }
+}
+
+m_aac->speechEngine()->speak(help);
 
         return;
     }
